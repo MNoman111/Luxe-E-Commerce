@@ -19,7 +19,7 @@ Go to [vercel.com/signup](https://vercel.com/signup) and **Continue with GitHub*
 1. Vercel dashboard → **Add New… → Project**.
 2. Find your **`luxe-ecommerce`** repo → **Import**. (If it's not listed, click **Adjust GitHub App Permissions** and grant access.)
 3. **IMPORTANT — set the Root Directory:** click **Edit** next to "Root Directory" and choose **`backend`**. This tells Vercel to deploy only the API.
-4. Leave Framework Preset as **Other**. Build/Output settings can stay default (the included `backend/vercel.json` handles routing).
+4. **Framework Preset:** Vercel auto-detects **Express** (the backend default-exports the app from `app.js`, so it deploys as one serverless function with **no `vercel.json` needed**). If it shows "Other", that's fine too — leave build/output settings at their defaults.
 5. Expand **Environment Variables** and add:
 
    | Name | Value |

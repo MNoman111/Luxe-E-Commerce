@@ -1,0 +1,25 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --sand: #f6f3ee;
+}
+
+html,
+body {
+  padding: 0;
+  margin: 0;
+  background: var(--sand);
+  color: #1a1a1a;
+  -webkit-font-smoothing: antialiased;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+* {
+  box-sizing: border-box;
+}

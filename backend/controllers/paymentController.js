@@ -22,16 +22,24 @@ export const createPaymentIntent = asyncHandler(async (req, res) => {
     res.status(404);
     throw new Error("Order not found");
   }
-  if (order.user.toString() !== req.user._id.toString()) {
-    res.status(403);
-    throw new Error("Not authorized for this order");
+  // Guest orders (no user) can be paid by anyone with the order id; user orders need the owner.
+  if (order.user) {
+    const isOwner =
+      req.user && order.user.toString() === req.user._id.toString();
+    if (!isOwner) {
+      res.status(403);
+      throw new Error("Not authorized for this order");
+    }
   }
 
   const intent = await getStripe().paymentIntents.create({
     amount: Math.round(order.totalPrice * 100), // smallest currency unit
     currency: process.env.STRIPE_CURRENCY || "usd",
     automatic_payment_methods: { enabled: true },
-    metadata: { orderId: order._id.toString(), userId: req.user._id.toString() },
+    metadata: {
+      orderId: order._id.toString(),
+      userId: req.user ? req.user._id.toString() : "guest",
+    },
   });
 
   res.json({ clientSecret: intent.client_secret, amount: order.totalPrice });

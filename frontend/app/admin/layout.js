@@ -8,6 +8,7 @@ const nav = [
   { href: "/admin", label: "Dashboard" },
   { href: "/admin/products", label: "Products" },
   { href: "/admin/orders", label: "Orders" },
+  { href: "/admin/vouchers", label: "Vouchers" },
 ];
 
 export default function AdminLayout({ children }) {

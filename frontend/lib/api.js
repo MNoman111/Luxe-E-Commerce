@@ -64,7 +64,16 @@ export const api = {
       auth: true,
     }),
 
+  // vouchers
+  validateVoucher: (code, subtotal) =>
+    request("/vouchers/validate", { method: "POST", body: { code, subtotal } }),
+
   // admin
+  adminVouchers: () => request("/vouchers", { auth: true }),
+  adminCreateVoucher: (payload) =>
+    request("/vouchers", { method: "POST", body: payload, auth: true }),
+  adminDeleteVoucher: (id) =>
+    request(`/vouchers/${id}`, { method: "DELETE", auth: true }),
   adminStats: () => request("/orders/admin/stats", { auth: true }),
   adminAllOrders: () => request("/orders", { auth: true }),
   adminUpdateOrderStatus: (id, status) =>

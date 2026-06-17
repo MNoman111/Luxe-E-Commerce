@@ -60,7 +60,12 @@ export default function AdminOrders() {
                     {new Date(o.createdAt).toLocaleDateString()}
                   </div>
                 </td>
-                <td className="p-3 text-black/70">{o.user?.name || "—"}</td>
+                <td className="p-3 text-black/70">
+                  {o.user?.name || o.guestEmail || "—"}
+                  {!o.user && (
+                    <span className="ml-1 text-xs bg-black/10 rounded px-1.5 py-0.5">Guest</span>
+                  )}
+                </td>
                 <td className="p-3">{currency(o.totalPrice)}</td>
                 <td className="p-3">
                   <span className="text-black/70">{o.paymentMethod}</span>{" "}

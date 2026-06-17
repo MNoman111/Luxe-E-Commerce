@@ -11,6 +11,8 @@ A complete clothing store built with **Next.js** (storefront), **Express + Mongo
 - Product detail pages with size/quantity selection
 - Persistent shopping cart (survives refresh)
 - JWT auth: register, login, logout, protected routes
+- **Guest checkout** — place an order with just an email, no account required
+- **Voucher / coupon codes** with expiry, minimum-order and usage limits (percentage or fixed amount), managed from the admin panel
 - Checkout with **Stripe card payments** *and* **Cash on Delivery**
 - Server-side price recalculation (cart totals can't be tampered with)
 - Order history and order detail pages

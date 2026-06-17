@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { loadStripe } from "@stripe/stripe-js";
 import { Elements } from "@stripe/react-stripe-js";
@@ -7,16 +8,18 @@ import api from "@/lib/api";
 import { useCart } from "@/context/CartContext";
 import { useAuth } from "@/context/AuthContext";
 import { currency } from "@/lib/format";
+import VoucherInput from "@/components/VoucherInput";
 import StripeForm from "./StripeForm";
 
 const pk = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY;
 const stripePromise = pk ? loadStripe(pk) : null;
 
 export default function CheckoutPage() {
-  const { items, subtotal, clear, ready } = useCart();
+  const { items, subtotal, discount, voucher, clear, ready } = useCart();
   const { user, loading } = useAuth();
   const router = useRouter();
 
+  const [guestEmail, setGuestEmail] = useState("");
   const [address, setAddress] = useState({
     fullName: "",
     address: "",
@@ -33,12 +36,11 @@ export default function CheckoutPage() {
   const [busy, setBusy] = useState(false);
 
   const shipping = subtotal >= 100 || subtotal === 0 ? 0 : 9.99;
-  const tax = useMemo(() => +(subtotal * 0.08).toFixed(2), [subtotal]);
-  const total = +(subtotal + shipping + tax).toFixed(2);
-
-  useEffect(() => {
-    if (!loading && !user) router.push("/login?redirect=/checkout");
-  }, [loading, user, router]);
+  const tax = useMemo(
+    () => +((subtotal - discount) * 0.08).toFixed(2),
+    [subtotal, discount]
+  );
+  const total = +(subtotal - discount + shipping + tax).toFixed(2);
 
   useEffect(() => {
     if (ready && items.length === 0 && stage === "form") router.push("/cart");
@@ -57,6 +59,8 @@ export default function CheckoutPage() {
         })),
         shippingAddress: address,
         paymentMethod: method,
+        voucherCode: voucher?.code || undefined,
+        guestEmail: user ? undefined : guestEmail,
       });
       setOrder(created);
 
@@ -82,12 +86,20 @@ export default function CheckoutPage() {
     router.push(`/orders/${order._id}?placed=1`);
   };
 
-  if (loading || !user)
-    return <div className="max-w-5xl mx-auto px-4 py-20">Loading…</div>;
+  if (loading) return <div className="max-w-5xl mx-auto px-4 py-20">Loading…</div>;
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-10">
-      <h1 className="font-serif text-4xl mb-8">Checkout</h1>
+      <h1 className="font-serif text-4xl mb-2">Checkout</h1>
+      {!user && (
+        <p className="text-sm text-black/60 mb-6">
+          Checking out as a guest.{" "}
+          <Link href="/login?redirect=/checkout" className="text-accent hover:underline">
+            Sign in
+          </Link>{" "}
+          to save your order history.
+        </p>
+      )}
       {error && (
         <div className="mb-6 text-sm bg-red-50 text-red-700 px-4 py-2 rounded">{error}</div>
       )}
@@ -96,6 +108,20 @@ export default function CheckoutPage() {
         <div className="lg:col-span-2">
           {stage === "form" ? (
             <form onSubmit={placeOrder} className="space-y-8">
+              {!user && (
+                <section>
+                  <h2 className="font-serif text-xl mb-4">Contact</h2>
+                  <input
+                    type="email"
+                    required
+                    placeholder="Email address (for your order confirmation)"
+                    className="input"
+                    value={guestEmail}
+                    onChange={(e) => setGuestEmail(e.target.value)}
+                  />
+                </section>
+              )}
+
               <section>
                 <h2 className="font-serif text-xl mb-4">Shipping address</h2>
                 <div className="grid sm:grid-cols-2 gap-4">
@@ -173,8 +199,21 @@ export default function CheckoutPage() {
               </div>
             ))}
           </div>
+
+          {stage === "form" && (
+            <div className="mb-4">
+              <VoucherInput />
+            </div>
+          )}
+
           <div className="border-t border-black/10 pt-3 space-y-2 text-sm">
             <div className="flex justify-between"><span>Subtotal</span><span>{currency(subtotal)}</span></div>
+            {discount > 0 && (
+              <div className="flex justify-between text-green-700">
+                <span>Discount{voucher ? ` (${voucher.code})` : ""}</span>
+                <span>−{currency(discount)}</span>
+              </div>
+            )}
             <div className="flex justify-between text-black/60"><span>Shipping</span><span>{shipping === 0 ? "Free" : currency(shipping)}</span></div>
             <div className="flex justify-between text-black/60"><span>Tax</span><span>{currency(tax)}</span></div>
             <div className="flex justify-between font-semibold pt-2 border-t border-black/10">

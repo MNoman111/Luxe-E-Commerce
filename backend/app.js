@@ -9,6 +9,7 @@ import authRoutes from "./routes/authRoutes.js";
 import productRoutes from "./routes/productRoutes.js";
 import orderRoutes from "./routes/orderRoutes.js";
 import paymentRoutes from "./routes/paymentRoutes.js";
+import voucherRoutes from "./routes/voucherRoutes.js";
 import { notFound, errorHandler } from "./middleware/error.js";
 import { stripeWebhook } from "./controllers/paymentController.js";
 
@@ -53,6 +54,7 @@ app.use("/api/auth", authRoutes);
 app.use("/api/products", productRoutes);
 app.use("/api/orders", orderRoutes);
 app.use("/api/payment", paymentRoutes);
+app.use("/api/vouchers", voucherRoutes);
 
 app.use(notFound);
 app.use(errorHandler);

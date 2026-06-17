@@ -36,3 +36,22 @@ export const admin = (req, res, next) => {
   res.status(403);
   throw new Error("Admin access required");
 };
+
+// Sets req.user if a valid token is present, but never blocks the request.
+// Used for endpoints that work for both logged-in users and guests.
+export const optionalAuth = asyncHandler(async (req, res, next) => {
+  let token;
+  const header = req.headers.authorization;
+  if (header && header.startsWith("Bearer ")) token = header.split(" ")[1];
+  else if (req.cookies && req.cookies.token) token = req.cookies.token;
+
+  if (token) {
+    try {
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      req.user = await User.findById(decoded.id).select("-password");
+    } catch {
+      req.user = null;
+    }
+  }
+  next();
+});

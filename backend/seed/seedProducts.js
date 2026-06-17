@@ -3,8 +3,54 @@ import mongoose from "mongoose";
 import connectDB from "../config/db.js";
 import Product from "../models/Product.js";
 import User from "../models/User.js";
+import Voucher from "../models/Voucher.js";
 
 dotenv.config();
+
+const daysFromNow = (d) => new Date(Date.now() + d * 24 * 60 * 60 * 1000);
+
+const vouchers = [
+  {
+    code: "WELCOME10",
+    description: "10% off your first order",
+    discountType: "percent",
+    discountValue: 10,
+    minOrder: 0,
+    expiresAt: daysFromNow(60),
+    usageLimit: 0,
+    active: true,
+  },
+  {
+    code: "SAVE20",
+    description: "$20 off orders over $100",
+    discountType: "fixed",
+    discountValue: 20,
+    minOrder: 100,
+    expiresAt: daysFromNow(14),
+    usageLimit: 100,
+    active: true,
+  },
+  {
+    code: "SUMMER25",
+    description: "25% off — limited summer promo",
+    discountType: "percent",
+    discountValue: 25,
+    minOrder: 80,
+    expiresAt: daysFromNow(7),
+    usageLimit: 50,
+    active: true,
+  },
+  {
+    code: "EXPIRED5",
+    description: "Expired sample voucher (for testing the expiry check)",
+    discountType: "percent",
+    discountValue: 5,
+    minOrder: 0,
+    expiresAt: daysFromNow(-2),
+    usageLimit: 0,
+    active: true,
+  },
+];
 
 const img = (id) =>
   `https://images.unsplash.com/photo-${id}?auto=format&fit=crop&w=900&q=80`;
@@ -250,6 +296,10 @@ const run = async () => {
     await Product.deleteMany();
     await Product.insertMany(products);
     console.log(`Seeded ${products.length} products.`);
+
+    await Voucher.deleteMany();
+    await Voucher.insertMany(vouchers);
+    console.log(`Seeded ${vouchers.length} vouchers (try WELCOME10, SAVE20, SUMMER25).`);
 
     // Optional demo admin + customer accounts
     const adminEmail = "admin@luxe.test";

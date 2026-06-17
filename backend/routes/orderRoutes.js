@@ -8,15 +8,15 @@ import {
   updateOrderStatus,
   getOrderStats,
 } from "../controllers/orderController.js";
-import { protect, admin } from "../middleware/auth.js";
+import { protect, admin, optionalAuth } from "../middleware/auth.js";
 
 const router = express.Router();
 
-router.route("/").post(protect, createOrder).get(protect, admin, getAllOrders);
+router.route("/").post(optionalAuth, createOrder).get(protect, admin, getAllOrders);
 router.get("/mine", protect, getMyOrders);
 router.get("/admin/stats", protect, admin, getOrderStats);
-router.get("/:id", protect, getOrderById);
-router.put("/:id/pay", protect, markOrderPaid);
+router.get("/:id", optionalAuth, getOrderById);
+router.put("/:id/pay", optionalAuth, markOrderPaid);
 router.put("/:id/status", protect, admin, updateOrderStatus);
 
 export default router;

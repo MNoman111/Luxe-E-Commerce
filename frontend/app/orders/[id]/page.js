@@ -93,6 +93,12 @@ function OrderInner() {
         </div>
         <div className="border-t border-black/10 mt-4 pt-4 space-y-2 text-sm">
           <div className="flex justify-between"><span>Items</span><span>{currency(order.itemsPrice)}</span></div>
+          {order.discountAmount > 0 && (
+            <div className="flex justify-between text-green-700">
+              <span>Discount{order.voucherCode ? ` (${order.voucherCode})` : ""}</span>
+              <span>−{currency(order.discountAmount)}</span>
+            </div>
+          )}
           <div className="flex justify-between text-black/60"><span>Shipping</span><span>{order.shippingPrice === 0 ? "Free" : currency(order.shippingPrice)}</span></div>
           <div className="flex justify-between text-black/60"><span>Tax</span><span>{currency(order.taxPrice)}</span></div>
           <div className="flex justify-between font-semibold pt-2 border-t border-black/10">

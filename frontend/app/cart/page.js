@@ -3,10 +3,14 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCart } from "@/context/CartContext";
 import { currency, FALLBACK_IMG } from "@/lib/format";
+import VoucherInput from "@/components/VoucherInput";
 
 export default function CartPage() {
-  const { items, updateQty, removeItem, subtotal } = useCart();
+  const { items, updateQty, removeItem, subtotal, discount } = useCart();
   const router = useRouter();
+  const shipping = subtotal >= 100 || subtotal === 0 ? 0 : 9.99;
+  const tax = +((subtotal - discount) * 0.08).toFixed(2);
+  const total = +(subtotal - discount + shipping + tax).toFixed(2);
 
   if (items.length === 0)
     return (
@@ -65,23 +69,32 @@ export default function CartPage() {
             <span>Subtotal</span>
             <span>{currency(subtotal)}</span>
           </div>
+          {discount > 0 && (
+            <div className="flex justify-between text-sm mb-2 text-green-700">
+              <span>Discount</span>
+              <span>−{currency(discount)}</span>
+            </div>
+          )}
           <div className="flex justify-between text-sm mb-2 text-black/60">
             <span>Shipping</span>
-            <span>{subtotal >= 100 ? "Free" : currency(9.99)}</span>
+            <span>{shipping === 0 ? "Free" : currency(shipping)}</span>
           </div>
           <div className="flex justify-between text-sm mb-4 text-black/60">
             <span>Tax (8%)</span>
-            <span>{currency(subtotal * 0.08)}</span>
+            <span>{currency(tax)}</span>
           </div>
-          <div className="flex justify-between font-semibold border-t border-black/10 pt-3">
+          <div className="flex justify-between font-semibold border-t border-black/10 pt-3 mb-4">
             <span>Estimated total</span>
-            <span>
-              {currency(subtotal + (subtotal >= 100 ? 0 : 9.99) + subtotal * 0.08)}
-            </span>
+            <span>{currency(total)}</span>
           </div>
+
+          <div className="mb-4">
+            <VoucherInput />
+          </div>
+
           <button
             onClick={() => router.push("/checkout")}
-            className="w-full mt-5 bg-ink text-white py-3 text-sm tracking-wide hover:bg-accent transition"
+            className="w-full bg-ink text-white py-3 text-sm tracking-wide hover:bg-accent transition"
           >
             Proceed to Checkout
           </button>

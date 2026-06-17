@@ -11,7 +11,10 @@ const orderItemSchema = new mongoose.Schema({
 
 const orderSchema = new mongoose.Schema(
   {
-    user: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
+    // Optional: guest orders have no user, identified by guestEmail instead.
+    user: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+    isGuest: { type: Boolean, default: false },
+    guestEmail: { type: String, lowercase: true, trim: true },
     orderItems: [orderItemSchema],
     shippingAddress: {
       fullName: String,
@@ -28,6 +31,8 @@ const orderSchema = new mongoose.Schema(
       default: "Stripe",
     },
     itemsPrice: { type: Number, required: true, default: 0 },
+    discountAmount: { type: Number, default: 0 },
+    voucherCode: { type: String, default: null },
     shippingPrice: { type: Number, required: true, default: 0 },
     taxPrice: { type: Number, required: true, default: 0 },
     totalPrice: { type: Number, required: true, default: 0 },

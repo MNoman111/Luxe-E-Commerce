@@ -34,8 +34,6 @@ services:
         value: 7d
       - key: STRIPE_SECRET_KEY
         sync: false # sk_test_... or sk_live_...
-      - key: STRIPE_WEBHOOK_SECRET
-        sync: false # whsec_... from the Stripe webhook you create
       - key: STRIPE_CURRENCY
         value: usd
       - key: CLIENT_URL

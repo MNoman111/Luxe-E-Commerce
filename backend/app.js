@@ -36,7 +36,7 @@ app.use(async (req, res, next) => {
   }
 });
 
-// Stripe webhook needs the raw request body, so it is mounted BEFORE express.json().
+// Stripe webhook needs the RAW body, so it is mounted BEFORE express.json().
 app.post(
   "/api/payment/webhook",
   express.raw({ type: "application/json" }),

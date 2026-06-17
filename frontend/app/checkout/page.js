@@ -2,11 +2,18 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { loadStripe } from "@stripe/stripe-js";
+import { Elements } from "@stripe/react-stripe-js";
 import api from "@/lib/api";
 import { useCart } from "@/context/CartContext";
 import { useAuth } from "@/context/AuthContext";
 import { currency } from "@/lib/format";
 import VoucherInput from "@/components/VoucherInput";
+import { PAYMENT_INFO } from "@/lib/paymentInfo";
+import StripeForm from "./StripeForm";
+
+const pk = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY;
+const stripePromise = pk ? loadStripe(pk) : null;
 
 export default function CheckoutPage() {
   const { items, subtotal, discount, voucher, clear, ready } = useCart();
@@ -25,7 +32,10 @@ export default function CheckoutPage() {
   });
   const [saveAddress, setSaveAddress] = useState(false);
   const [method, setMethod] = useState("Stripe");
+  const [transactionId, setTransactionId] = useState("");
   const [placed, setPlaced] = useState(false);
+  const [stage, setStage] = useState("form"); // form | pay (Stripe card step)
+  const [clientSecret, setClientSecret] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
 
@@ -71,36 +81,64 @@ export default function CheckoutPage() {
     }
   };
 
+  const buildPayload = (extra = {}) => ({
+    orderItems: items.map((i) => ({ product: i.product, qty: i.qty, size: i.size })),
+    shippingAddress: address,
+    paymentMethod: method,
+    paymentReference: method === "BankTransfer" ? transactionId : undefined,
+    voucherCode: user && voucher ? voucher.code : undefined,
+    guestEmail: user ? undefined : guestEmail,
+    contactEmail: user ? contactEmail : undefined,
+    ...extra,
+  });
+
+  const finalize = async (created) => {
+    setPlaced(true);
+    await persistAddressIfRequested();
+    clear();
+    router.push(`/orders/${created._id}?placed=1`);
+  };
+
   const placeOrder = async (e) => {
     e.preventDefault();
     setError("");
     setBusy(true);
     try {
-      const created = await api.createOrder({
-        orderItems: items.map((i) => ({
-          product: i.product,
-          qty: i.qty,
-          size: i.size,
-        })),
-        shippingAddress: address,
-        paymentMethod: method,
-        voucherCode: user && voucher ? voucher.code : undefined,
-        guestEmail: user ? undefined : guestEmail,
-        contactEmail: user ? contactEmail : undefined,
-      });
-      setPlaced(true);
-      await persistAddressIfRequested();
-      clear();
-
-      // COD: confirmed now. Stripe: go to the order page to pay (resumable URL).
-      if (method === "COD") {
-        router.push(`/orders/${created._id}?placed=1`);
-      } else {
-        router.push(`/orders/${created._id}`);
+      // Stripe: don't create the order yet — start payment first.
+      // The order is created only after the card payment succeeds.
+      if (method === "Stripe") {
+        const intent = await api.createPaymentIntent({
+          orderItems: items.map((i) => ({ product: i.product, qty: i.qty, size: i.size })),
+          voucherCode: user && voucher ? voucher.code : undefined,
+          shippingAddress: address,
+          contactEmail: user ? contactEmail : undefined,
+          guestEmail: user ? undefined : guestEmail,
+        });
+        setClientSecret(intent.clientSecret);
+        setStage("pay");
+        setBusy(false);
+        return;
       }
+      // COD & bank/wallet transfer are confirmed at placement.
+      const created = await api.createOrder(buildPayload());
+      await finalize(created);
     } catch (err) {
       setError(err.message);
       setBusy(false);
+    }
+  };
+
+  // Called by StripeForm after the card payment succeeds — NOW we create the order.
+  const handleStripePaid = async (result) => {
+    try {
+      const created = await api.createOrder(
+        buildPayload({ paymentMethod: "Stripe", paymentIntentId: result.id })
+      );
+      await finalize(created);
+    } catch (err) {
+      setError(
+        `Your payment went through but the order couldn't be finalized: ${err.message}. Please contact support with payment ref ${result.id}.`
+      );
     }
   };
 
@@ -124,6 +162,7 @@ export default function CheckoutPage() {
 
       <div className="grid lg:grid-cols-3 gap-10">
         <div className="lg:col-span-2">
+          {stage === "form" ? (
             <form onSubmit={placeOrder} className="space-y-8">
               <section>
                 <h2 className="font-serif text-xl mb-4">
@@ -197,12 +236,60 @@ export default function CheckoutPage() {
                       onChange={() => setMethod("Stripe")} />
                     <span>Pay by card (Stripe)</span>
                   </label>
+                  <label className={`flex items-center gap-3 border rounded-md px-4 py-3 cursor-pointer ${method === "BankTransfer" ? "border-ink" : "border-black/15"}`}>
+                    <input type="radio" checked={method === "BankTransfer"}
+                      onChange={() => setMethod("BankTransfer")} />
+                    <span>JazzCash / Easypaisa / Bank Transfer</span>
+                  </label>
                   <label className={`flex items-center gap-3 border rounded-md px-4 py-3 cursor-pointer ${method === "COD" ? "border-ink" : "border-black/15"}`}>
                     <input type="radio" checked={method === "COD"}
                       onChange={() => setMethod("COD")} />
                     <span>Cash on Delivery</span>
                   </label>
                 </div>
+
+                {method === "BankTransfer" && (
+                  <div className="mt-4 border border-black/15 rounded-md p-4 bg-black/[0.02] text-sm">
+                    <p className="font-medium mb-2">
+                      Transfer {currency(total)} to one of the accounts below, then enter your
+                      transaction ID:
+                    </p>
+                    <ul className="space-y-1 text-black/70 mb-3">
+                      {PAYMENT_INFO.accountName && (
+                        <li>Account title: <strong>{PAYMENT_INFO.accountName}</strong></li>
+                      )}
+                      {PAYMENT_INFO.jazzcash && (
+                        <li>JazzCash: <strong>{PAYMENT_INFO.jazzcash}</strong></li>
+                      )}
+                      {PAYMENT_INFO.easypaisa && (
+                        <li>Easypaisa: <strong>{PAYMENT_INFO.easypaisa}</strong></li>
+                      )}
+                      {PAYMENT_INFO.bankName && PAYMENT_INFO.bankIban && (
+                        <li>
+                          Bank: <strong>{PAYMENT_INFO.bankName}</strong> · IBAN:{" "}
+                          <strong>{PAYMENT_INFO.bankIban}</strong>
+                        </li>
+                      )}
+                      {!PAYMENT_INFO.jazzcash &&
+                        !PAYMENT_INFO.easypaisa &&
+                        !PAYMENT_INFO.bankIban && (
+                          <li className="text-amber-700">
+                            Payment account details have not been configured yet.
+                          </li>
+                        )}
+                    </ul>
+                    <input
+                      required
+                      placeholder="Transaction ID (TID) from JazzCash/Easypaisa/bank"
+                      className="input"
+                      value={transactionId}
+                      onChange={(e) => setTransactionId(e.target.value)}
+                    />
+                    <p className="text-xs text-black/50 mt-1">
+                      We'll verify your transfer and confirm the order shortly.
+                    </p>
+                  </div>
+                )}
               </section>
 
               <button disabled={busy}
@@ -211,9 +298,32 @@ export default function CheckoutPage() {
                   ? "Placing order…"
                   : method === "COD"
                   ? "Place order (Cash on Delivery)"
+                  : method === "BankTransfer"
+                  ? "Place order"
                   : "Continue to payment"}
               </button>
             </form>
+          ) : (
+            <section>
+              <h2 className="font-serif text-xl mb-4">Card payment</h2>
+              {stripePromise && clientSecret ? (
+                <Elements stripe={stripePromise} options={{ clientSecret }}>
+                  <StripeForm onPaid={handleStripePaid} />
+                </Elements>
+              ) : (
+                <p className="text-sm text-red-700">
+                  Payment is not configured. Add NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY.
+                </p>
+              )}
+              <button
+                type="button"
+                onClick={() => setStage("form")}
+                className="mt-4 text-sm text-accent hover:underline"
+              >
+                ← Back to details
+              </button>
+            </section>
+          )}
         </div>
 
         <aside className="bg-white rounded-lg p-6 h-fit border border-black/5">
@@ -229,9 +339,11 @@ export default function CheckoutPage() {
             ))}
           </div>
 
-          <div className="mb-4">
-            <VoucherInput />
-          </div>
+          {stage === "form" && (
+            <div className="mb-4">
+              <VoucherInput />
+            </div>
+          )}
 
           <div className="border-t border-black/10 pt-3 space-y-2 text-sm">
             <div className="flex justify-between"><span>Subtotal</span><span>{currency(subtotal)}</span></div>

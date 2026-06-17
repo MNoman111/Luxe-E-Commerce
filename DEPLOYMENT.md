@@ -7,7 +7,7 @@ What you'll create:
 - a **MongoDB Atlas** free cluster (the database)
 - a **GitHub** repo (Render deploys from it)
 - two **Render** web services from the included `render.yaml`: `luxe-api` (Express) and `luxe-web` (Next.js)
-- a **Stripe** webhook pointing at the live API
+- **Stripe** test API keys for card payments
 
 ---
 
@@ -73,7 +73,6 @@ In each service's **Environment** tab:
 | `STRIPE_SECRET_KEY` | `sk_test_...` (from Stripe → Developers → API keys) |
 | `STRIPE_CURRENCY` | `usd` |
 | `CLIENT_URL` | *(fill after first deploy — your luxe-web URL)* |
-| `STRIPE_WEBHOOK_SECRET` | *(fill in step 6)* |
 
 **luxe-web**
 
@@ -101,34 +100,22 @@ This creates the catalog plus `admin@luxe.test / admin123` and `customer@luxe.te
 
 ---
 
-## 6. Connect the Stripe webhook
-
-So payments are confirmed server-side on the live site:
-
-1. Stripe Dashboard → **Developers → Webhooks → Add endpoint**.
-2. Endpoint URL: `https://<your-luxe-api-url>/api/payment/webhook`
-3. Events to send: **`payment_intent.succeeded`**.
-4. Create it, then copy the **Signing secret** (`whsec_...`).
-5. Put it in **luxe-api → Environment → `STRIPE_WEBHOOK_SECRET`** and redeploy the API.
-
----
-
-## 7. Go live & test
+## 6. Go live & test
 
 Open your `luxe-web` URL and verify:
 
 - products load on the home page (confirms web → api → Atlas all connect)
 - register / login works
 - add to cart → checkout with test card `4242 4242 4242 4242` (any future date/CVC)
-- the order shows **Paid** (confirms the webhook fired)
+- the order is created and shows **Paid** (Stripe orders are only created after payment succeeds)
 - sign in as the admin and open `/admin` to manage products and orders
 
 ---
 
 ## Notes & gotchas
 
-- **Free-tier cold starts:** Render free services sleep after ~15 min idle; the first request then takes ~30–50s. Stripe automatically retries the webhook, so payments still confirm. Upgrade to a paid instance to keep services warm.
+- **Free-tier cold starts:** Render free services sleep after ~15 min idle; the first request then takes ~30–50s. Upgrade to a paid instance to keep services warm.
 - **Changing `NEXT_PUBLIC_API_URL` later** requires a frontend **rebuild**, not just a restart, because Next.js inlines public env vars at build time.
-- **Going from test to live payments:** swap `sk_test_`/`pk_test_` for `sk_live_`/`pk_live_`, create a *live-mode* webhook, and update `STRIPE_WEBHOOK_SECRET`.
+- **Going from test to live payments:** swap `sk_test_`/`pk_test_` for `sk_live_`/`pk_live_`.
 - **Custom domain:** add it under each Render service's **Settings → Custom Domains**, then update `CLIENT_URL` / `NEXT_PUBLIC_API_URL` accordingly and redeploy.
 - **Security before real public use:** rotate/disable the seeded demo accounts, keep `0.0.0.0/0` only if acceptable (or restrict to Render egress IPs on a paid plan), and consider adding rate limiting and request validation.

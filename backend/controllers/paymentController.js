@@ -1,7 +1,7 @@
 import asyncHandler from "express-async-handler";
 import Stripe from "stripe";
-import Order from "../models/Order.js";
-import { sendOrderEmails } from "../utils/email.js";
+import PaymentDraft from "../models/PaymentDraft.js";
+import { priceOrder, finalizeStripeOrder } from "./orderController.js";
 
 let stripe = null;
 const getStripe = () => {
@@ -14,67 +14,77 @@ const getStripe = () => {
   return stripe;
 };
 
-// @route POST /api/payment/create-intent  { orderId }
-// Creates a Stripe PaymentIntent for an existing order and returns clientSecret.
+// @route POST /api/payment/create-intent   (full checkout payload)
+// Computes the amount from the cart, creates a Stripe PaymentIntent, and saves a
+// short-lived draft so the order can be created from a successful payment by either
+// the browser or the webhook. No order is created here.
 export const createPaymentIntent = asyncHandler(async (req, res) => {
-  const { orderId } = req.body;
-  const order = await Order.findById(orderId);
-  if (!order) {
-    res.status(404);
-    throw new Error("Order not found");
+  const { orderItems, voucherCode, shippingAddress, contactEmail, guestEmail } = req.body;
+  if (!orderItems || orderItems.length === 0) {
+    res.status(400);
+    throw new Error("No order items");
   }
-  // Guest orders (no user) can be paid by anyone with the order id; user orders need the owner.
-  if (order.user) {
-    const isOwner =
-      req.user && order.user.toString() === req.user._id.toString();
-    if (!isOwner) {
-      res.status(403);
-      throw new Error("Not authorized for this order");
+
+  const isGuest = !req.user;
+  let email;
+  if (isGuest) {
+    email = (guestEmail || "").trim();
+    if (!email) {
+      res.status(400);
+      throw new Error("An email address is required to place a guest order");
     }
+  } else {
+    email = ((contactEmail && contactEmail.trim()) || req.user.email).toLowerCase();
+  }
+
+  let pricing;
+  try {
+    pricing = await priceOrder({ orderItems, voucherCode, userId: req.user?._id, isGuest });
+  } catch (err) {
+    res.status(400);
+    throw err;
   }
 
   const intent = await getStripe().paymentIntents.create({
-    amount: Math.round(order.totalPrice * 100), // smallest currency unit
+    amount: Math.round(pricing.totalPrice * 100), // smallest currency unit
     currency: process.env.STRIPE_CURRENCY || "usd",
     automatic_payment_methods: { enabled: true },
-    metadata: {
-      orderId: order._id.toString(),
-      userId: req.user ? req.user._id.toString() : "guest",
-    },
+    metadata: { userId: req.user ? req.user._id.toString() : "guest" },
   });
 
-  res.json({ clientSecret: intent.client_secret, amount: order.totalPrice });
+  // Save the draft so a successful payment can always be turned into an order.
+  await PaymentDraft.findOneAndUpdate(
+    { paymentIntentId: intent.id },
+    {
+      paymentIntentId: intent.id,
+      user: req.user?._id || null,
+      isGuest,
+      email,
+      accountEmail: isGuest ? null : req.user.email,
+      shippingAddress,
+      paymentMethod: "Stripe",
+      voucherCode: pricing.appliedCode,
+      orderItems: pricing.lineItems,
+      itemsPrice: pricing.itemsPrice,
+      discountAmount: pricing.discountAmount,
+      shippingPrice: pricing.shippingPrice,
+      taxPrice: pricing.taxPrice,
+      totalPrice: pricing.totalPrice,
+      createdAt: new Date(),
+    },
+    { upsert: true, new: true, setDefaultsOnInsert: true }
+  );
+
+  res.json({
+    clientSecret: intent.client_secret,
+    paymentIntentId: intent.id,
+    amount: pricing.totalPrice,
+  });
 });
 
-// Mark an order paid from a verified Stripe event (single source of truth).
-const fulfillOrder = async (paymentIntent) => {
-  const orderId = paymentIntent.metadata?.orderId;
-  if (!orderId) return;
-  const order = await Order.findById(orderId).populate("user", "email");
-  if (!order || order.isPaid) return; // already handled (e.g. by the client) — avoids double email
-  order.isPaid = true;
-  order.paidAt = new Date();
-  order.status = "Processing";
-  order.paymentResult = {
-    id: paymentIntent.id,
-    status: paymentIntent.status,
-    provider: "Stripe",
-  };
-  await order.save();
-  console.log(`Order ${orderId} marked paid via webhook.`);
-
-  try {
-    await sendOrderEmails(order, {
-      customerEmail: order.contactEmail || order.guestEmail || order.user?.email,
-      accountEmail: order.isGuest ? null : order.user?.email,
-    });
-  } catch (err) {
-    console.error("webhook confirmation email error:", err.message);
-  }
-};
-
 // @route POST /api/payment/webhook   (Stripe calls this; raw body required)
-// Verifies the Stripe signature and confirms payment server-side.
+// Safety net: if the browser never finalizes the order after paying (closed tab,
+// lost connection), Stripe's payment_intent.succeeded event creates the order here.
 export const stripeWebhook = async (req, res) => {
   const secret = process.env.STRIPE_WEBHOOK_SECRET;
   let event = req.body;
@@ -84,7 +94,6 @@ export const stripeWebhook = async (req, res) => {
       const signature = req.headers["stripe-signature"];
       event = getStripe().webhooks.constructEvent(req.body, signature, secret);
     } else {
-      // No secret configured (local dev without Stripe CLI): parse raw body.
       event = JSON.parse(req.body.toString());
     }
   } catch (err) {
@@ -94,10 +103,10 @@ export const stripeWebhook = async (req, res) => {
 
   try {
     if (event.type === "payment_intent.succeeded") {
-      await fulfillOrder(event.data.object);
+      await finalizeStripeOrder(event.data.object.id);
     }
   } catch (err) {
-    console.error("Webhook handler error:", err.message);
+    console.error("Webhook order finalization error:", err.message);
   }
 
   res.json({ received: true });

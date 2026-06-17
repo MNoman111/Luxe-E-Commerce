@@ -13,12 +13,12 @@ A complete clothing store built with **Next.js** (storefront), **Express + Mongo
 - JWT auth: register, login, logout, protected routes
 - **Guest checkout** — place an order with just an email, no account required
 - **Voucher / coupon codes** with expiry, minimum-order and usage limits (percentage or fixed amount), managed from the admin panel — signed-in users only, redeemable once per user
-- Checkout with **Stripe card payments** *and* **Cash on Delivery**
+- Multiple payment methods: **Stripe card payments**, **JazzCash / Easypaisa / bank transfer** (manual), and **Cash on Delivery**
+- Stripe orders are created **only after payment is confirmed** (amount verified server-side against the PaymentIntent)
 - **Order emails** — confirmation to the customer and a notification to the admin on every order (via SMTP / Resend)
 - Server-side price recalculation (cart totals can't be tampered with)
 - Order history and order detail pages
-- **Stripe webhook** that confirms payments server-side (the source of truth)
-- **Admin dashboard**: revenue/order stats, product CRUD, order status management
+- **Admin dashboard**: revenue/order stats, product CRUD, order status management, manual payment confirmation
 - Seed script with 16 products + demo admin/customer accounts
 
 ## Tech Stack
@@ -109,18 +109,13 @@ Use Stripe's test card at checkout:
 - **Card:** `4242 4242 4242 4242`
 - **Expiry:** any future date · **CVC:** any 3 digits · **ZIP:** any
 
-Or choose **Cash on Delivery** to place an order with no card required.
+Or choose **JazzCash / Easypaisa / Bank Transfer** (manual) or **Cash on Delivery** to place an order with no card.
 
-## Stripe Webhook (server-side confirmation)
+## How payment works
 
-The order is marked **paid by a verified Stripe webhook**, not by the browser — so a manipulated client can never fake a payment. To receive events locally, use the Stripe CLI:
-
-```bash
-stripe login
-stripe listen --forward-to localhost:5000/api/payment/webhook
-```
-
-The CLI prints a signing secret (`whsec_...`); put it in the backend `.env` as `STRIPE_WEBHOOK_SECRET`. The webhook listens for `payment_intent.succeeded`. In production, register `https://your-api/api/payment/webhook` in the Stripe Dashboard instead. (If no secret is set, the endpoint still works in dev but skips signature verification.)
+- **Stripe:** at checkout the server computes the amount and creates a Stripe PaymentIntent (no order yet). The customer pays; only after the payment **succeeds** does the client create the order, and the server verifies the PaymentIntent is `succeeded` and its amount matches the order total before saving. So no unpaid Stripe orders are ever created, and the amount can't be tampered with.
+- **JazzCash / Easypaisa / Bank transfer:** the customer transfers to your configured account and enters their transaction ID. The order is placed *pending*; an admin verifies the transfer and clicks **Mark as paid**.
+- **Cash on Delivery:** order placed immediately; paid on delivery.
 
 ## Admin Dashboard
 
@@ -141,23 +136,23 @@ Sign in as the admin demo account (`admin@luxe.test / admin123`) and an **Admin*
 | GET    | `/api/products/featured`     | —      | Featured products              |
 | GET    | `/api/products/:id`          | —      | Product detail                 |
 | POST   | `/api/products`              | admin  | Create product                 |
-| POST   | `/api/orders`                | user   | Create order (totals on server)|
+| POST   | `/api/orders`                | optional | Create order (Stripe: verifies payment first) |
 | GET    | `/api/orders/mine`           | user   | My orders                      |
-| GET    | `/api/orders/:id`            | user   | Order detail                   |
-| PUT    | `/api/orders/:id/pay`        | user   | Mark paid after Stripe         |
+| GET    | `/api/orders/:id`            | optional | Order detail (guest-friendly)|
 | GET    | `/api/orders`                | admin  | All orders                     |
 | PUT    | `/api/orders/:id/status`     | admin  | Update order status            |
+| PUT    | `/api/orders/:id/confirm-payment` | admin | Mark a manual transfer paid |
 | GET    | `/api/orders/admin/stats`    | admin  | Revenue & order stats          |
-| POST   | `/api/payment/create-intent` | user   | Stripe PaymentIntent           |
-| POST   | `/api/payment/webhook`       | Stripe | Verified payment confirmation  |
+| POST   | `/api/payment/create-intent` | optional | Stripe PaymentIntent from cart |
+| POST   | `/api/vouchers/validate`     | user   | Validate a voucher code        |
 
 ## Deployment
 
-The repo includes a `render.yaml` blueprint that deploys both services to **Render** (free tier) with **MongoDB Atlas** as the database. See **[DEPLOYMENT.md](./DEPLOYMENT.md)** for the full step-by-step guide (Atlas setup, GitHub push, Render blueprint, env vars, Stripe webhook, and seeding production).
+The app is deployed on **Vercel** (frontend + serverless API) with **MongoDB Atlas** — see **[VERCEL_DEPLOYMENT.md](./VERCEL_DEPLOYMENT.md)** for the full no-credit-card walkthrough. A `render.yaml` blueprint and **[DEPLOYMENT.md](./DEPLOYMENT.md)** are also included as an alternative Render-based path.
 
 ## Notes
 
 - Product images are served from Unsplash via URL; a built-in SVG fallback renders if any image fails to load.
 - Order totals (items, shipping, tax) are always recomputed on the server from the database to prevent client tampering.
-- This is a demo/portfolio project. Before production: add a Stripe webhook to confirm payments, rate limiting, input validation hardening, and HTTPS.
+- This is a demo/portfolio project. Before production, consider: a Stripe webhook as a fallback to reconcile payments where the client drops out after paying, rate limiting, stronger input validation, and HTTPS.
 ```

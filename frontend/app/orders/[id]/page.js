@@ -2,14 +2,8 @@
 import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams, useSearchParams } from "next/navigation";
-import { loadStripe } from "@stripe/stripe-js";
-import { Elements } from "@stripe/react-stripe-js";
 import api from "@/lib/api";
 import { currency, FALLBACK_IMG } from "@/lib/format";
-import StripeForm from "@/app/checkout/StripeForm";
-
-const pk = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY;
-const stripePromise = pk ? loadStripe(pk) : null;
 
 function OrderInner() {
   const { id } = useParams();
@@ -18,35 +12,9 @@ function OrderInner() {
   const [order, setOrder] = useState(null);
   const [error, setError] = useState("");
 
-  const [clientSecret, setClientSecret] = useState("");
-  const [payError, setPayError] = useState("");
-  const [starting, setStarting] = useState(false);
-  const [justPaid, setJustPaid] = useState(false);
-
   useEffect(() => {
     api.getOrder(id).then(setOrder).catch((e) => setError(e.message));
   }, [id]);
-
-  const startPayment = async () => {
-    setPayError("");
-    setStarting(true);
-    try {
-      const intent = await api.createPaymentIntent(order._id);
-      setClientSecret(intent.clientSecret);
-    } catch (e) {
-      setPayError(e.message);
-    } finally {
-      setStarting(false);
-    }
-  };
-
-  const handlePaid = async (result) => {
-    await api.markPaid(order._id, result);
-    const fresh = await api.getOrder(order._id);
-    setOrder(fresh);
-    setClientSecret("");
-    setJustPaid(true);
-  };
 
   if (error)
     return (
@@ -78,6 +46,8 @@ function OrderInner() {
           <p className="text-sm text-green-700 mt-1">
             {order.paymentMethod === "COD"
               ? "You'll pay in cash on delivery. "
+              : order.paymentMethod === "BankTransfer"
+              ? "We'll confirm your order once your transfer is verified. "
               : "Payment received. "}
             A confirmation email is on its way to{" "}
             {order.contactEmail || order.guestEmail || order.user?.email || "your inbox"}.
@@ -99,42 +69,16 @@ function OrderInner() {
         </div>
       )}
 
-      {justPaid && (
-        <div className="mb-8 bg-green-50 border border-green-200 text-green-800 rounded-xl px-5 py-4">
-          <p className="font-medium">Payment successful — thank you!</p>
-          <p className="text-sm">A confirmation email is on its way.</p>
-        </div>
-      )}
-
-      {order.paymentMethod === "Stripe" && !order.isPaid && (
+      {order.paymentMethod === "BankTransfer" && !order.isPaid && (
         <div className="mb-8 border border-amber-200 bg-amber-50 rounded-xl p-6">
-          <h2 className="font-serif text-2xl text-amber-900 mb-1">Payment pending</h2>
-          <p className="text-sm text-amber-800 mb-4">
-            This order is reserved but hasn't been paid yet. Complete payment below to
-            confirm it ({currency(order.totalPrice)}).
+          <h2 className="font-serif text-2xl text-amber-900 mb-1">
+            Payment under verification
+          </h2>
+          <p className="text-sm text-amber-800">
+            We've received your order
+            {order.paymentReference ? ` (transaction ID: ${order.paymentReference})` : ""}. We'll
+            confirm it as soon as your JazzCash / Easypaisa / bank transfer is verified.
           </p>
-          {payError && (
-            <div className="mb-3 text-sm bg-red-50 text-red-700 px-4 py-2 rounded">
-              {payError}
-            </div>
-          )}
-          {!clientSecret ? (
-            <button
-              onClick={startPayment}
-              disabled={starting}
-              className="bg-ink text-white px-6 py-2.5 text-sm tracking-wide hover:bg-accent transition disabled:opacity-50"
-            >
-              {starting ? "Preparing…" : `Complete payment · ${currency(order.totalPrice)}`}
-            </button>
-          ) : stripePromise ? (
-            <div className="bg-white rounded-lg p-4 border border-black/5">
-              <Elements stripe={stripePromise} options={{ clientSecret }}>
-                <StripeForm onPaid={handlePaid} />
-              </Elements>
-            </div>
-          ) : (
-            <p className="text-sm text-red-700">Payment is not configured.</p>
-          )}
         </div>
       )}
 

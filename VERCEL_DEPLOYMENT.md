@@ -118,7 +118,7 @@ That's it — your store is public. 🎉
 ## Notes & limits (free tier)
 
 - **Cold starts:** the serverless API may take a second or two to wake on first hit after idle. Normal on Hobby.
-- **Payment confirmation:** the app marks orders paid right after Stripe confirms in the browser, so checkout works fully. The optional `STRIPE_WEBHOOK_SECRET` server-side webhook is best left **unset** on Vercel (serverless functions don't preserve the raw body Stripe needs to verify signatures). For bulletproof webhook verification, run the backend on a long-running host (see `DEPLOYMENT.md` for the Render setup) and add the webhook there.
+- **Payment confirmation:** Stripe orders are created only after the card payment succeeds (the browser finalizes the order). As a **safety net**, a Stripe webhook also creates the order from the `payment_intent.succeeded` event — so even if the customer's browser drops out right after paying, the order is still created and they never lose money. To enable it: Stripe Dashboard → Developers → Webhooks → add endpoint `https://<your-api>/api/payment/webhook`, event `payment_intent.succeeded`, then set `STRIPE_WEBHOOK_SECRET` (the `whsec_…`) on the backend project. It works without the secret too (it just skips signature verification).
 - **Function duration:** Hobby serverless functions run up to ~10s — plenty for these endpoints.
 - **Going to real payments later:** swap to `sk_live_`/`pk_live_` keys and activate your Stripe account.
 - **Custom domain:** add it free under the frontend project's **Settings → Domains**, then update `CLIENT_URL` (backend) + `NEXT_PUBLIC_API_URL` (frontend) and redeploy.

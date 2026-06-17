@@ -55,14 +55,12 @@ export const api = {
     request("/orders", { method: "POST", body: payload, auth: true }),
   getMyOrders: () => request("/orders/mine", { auth: true }),
   getOrder: (id) => request(`/orders/${id}`, { auth: true }),
-  markPaid: (id, payload) =>
-    request(`/orders/${id}/pay`, { method: "PUT", body: payload, auth: true }),
 
-  // payment
-  createPaymentIntent: (orderId) =>
+  // payment — creates a Stripe PaymentIntent from the cart (no order yet)
+  createPaymentIntent: (payload) =>
     request("/payment/create-intent", {
       method: "POST",
-      body: { orderId },
+      body: payload,
       auth: true,
     }),
 
@@ -84,6 +82,8 @@ export const api = {
   adminAllOrders: () => request("/orders", { auth: true }),
   adminUpdateOrderStatus: (id, status) =>
     request(`/orders/${id}/status`, { method: "PUT", body: { status }, auth: true }),
+  adminConfirmPayment: (id) =>
+    request(`/orders/${id}/confirm-payment`, { method: "PUT", auth: true }),
   adminCreateProduct: (payload) =>
     request("/products", { method: "POST", body: payload, auth: true }),
   adminUpdateProduct: (id, payload) =>

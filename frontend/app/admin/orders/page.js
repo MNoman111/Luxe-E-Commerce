@@ -30,6 +30,18 @@ export default function AdminOrders() {
     }
   };
 
+  const confirmPaid = async (id) => {
+    setSaving(id);
+    try {
+      const updated = await api.adminConfirmPayment(id);
+      setOrders((list) => list.map((o) => (o._id === id ? { ...o, ...updated } : o)));
+    } catch (e) {
+      alert(e.message);
+    } finally {
+      setSaving("");
+    }
+  };
+
   if (loading) return <p className="text-black/50">Loading…</p>;
 
   return (
@@ -68,10 +80,24 @@ export default function AdminOrders() {
                 </td>
                 <td className="p-3">{currency(o.totalPrice)}</td>
                 <td className="p-3">
-                  <span className="text-black/70">{o.paymentMethod}</span>{" "}
-                  <span className={o.isPaid ? "text-green-600" : "text-amber-600"}>
-                    {o.isPaid ? "· Paid" : "· Unpaid"}
-                  </span>
+                  <div>
+                    <span className="text-black/70">{o.paymentMethod}</span>{" "}
+                    <span className={o.isPaid ? "text-green-600" : "text-amber-600"}>
+                      {o.isPaid ? "· Paid" : "· Unpaid"}
+                    </span>
+                  </div>
+                  {o.paymentReference && (
+                    <div className="text-xs text-black/50">Txn: {o.paymentReference}</div>
+                  )}
+                  {!o.isPaid && o.paymentMethod !== "Stripe" && (
+                    <button
+                      onClick={() => confirmPaid(o._id)}
+                      disabled={saving === o._id}
+                      className="mt-1 text-xs text-accent hover:underline disabled:opacity-50"
+                    >
+                      Mark as paid
+                    </button>
+                  )}
                 </td>
                 <td className="p-3">
                   <select

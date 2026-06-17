@@ -3,10 +3,10 @@ import {
   createOrder,
   getMyOrders,
   getOrderById,
-  markOrderPaid,
   getAllOrders,
   updateOrderStatus,
   getOrderStats,
+  confirmPayment,
 } from "../controllers/orderController.js";
 import { protect, admin, optionalAuth } from "../middleware/auth.js";
 
@@ -16,7 +16,7 @@ router.route("/").post(optionalAuth, createOrder).get(protect, admin, getAllOrde
 router.get("/mine", protect, getMyOrders);
 router.get("/admin/stats", protect, admin, getOrderStats);
 router.get("/:id", optionalAuth, getOrderById);
-router.put("/:id/pay", optionalAuth, markOrderPaid);
+router.put("/:id/confirm-payment", protect, admin, confirmPayment);
 router.put("/:id/status", protect, admin, updateOrderStatus);
 
 export default router;

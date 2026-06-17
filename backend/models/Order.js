@@ -29,9 +29,11 @@ const orderSchema = new mongoose.Schema(
     paymentMethod: {
       type: String,
       required: true,
-      enum: ["Stripe", "COD"],
+      enum: ["Stripe", "COD", "BankTransfer"],
       default: "Stripe",
     },
+    // For manual transfers (JazzCash / Easypaisa / bank): the customer's transaction id.
+    paymentReference: { type: String, default: "" },
     itemsPrice: { type: Number, required: true, default: 0 },
     discountAmount: { type: Number, default: 0 },
     voucherCode: { type: String, default: null },

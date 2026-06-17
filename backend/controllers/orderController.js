@@ -49,11 +49,8 @@ export const createOrder = asyncHandler(async (req, res) => {
       throw new Error("An email address is required to place a guest order");
     }
   } else {
-    email = (
-      (contactEmail && contactEmail.trim()) ||
-      req.user.notificationEmail ||
-      req.user.email
-    ).toLowerCase();
+    // Logged-in: send the confirmation to the per-order email if given, else the account email.
+    email = ((contactEmail && contactEmail.trim()) || req.user.email).toLowerCase();
   }
 
   const { orderItems: lineItems, itemsPrice } = await buildOrderItems(orderItems);
@@ -105,8 +102,12 @@ export const createOrder = asyncHandler(async (req, res) => {
   });
 
   // Fire confirmation + admin notification emails (never blocks order success).
+  // customerEmail = where the confirmation is sent; accountEmail = who placed it (for admin).
   try {
-    await sendOrderEmails(order, email);
+    await sendOrderEmails(order, {
+      customerEmail: email,
+      accountEmail: isGuest ? null : req.user.email,
+    });
   } catch (err) {
     console.error("sendOrderEmails error:", err.message);
   }

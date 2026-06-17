@@ -2,7 +2,6 @@ import express from "express";
 import dotenv from "dotenv";
 import cors from "cors";
 import morgan from "morgan";
-import cookieParser from "cookie-parser";
 
 import connectDB from "./config/db.js";
 import authRoutes from "./routes/authRoutes.js";
@@ -17,7 +16,7 @@ dotenv.config();
 
 const app = express();
 
-// Render/Vercel/most PaaS sit behind a proxy; needed for secure cookies + correct IPs.
+// Render/Vercel/most PaaS sit behind a proxy; trust it for correct protocol + client IPs.
 app.set("trust proxy", 1);
 
 app.use(
@@ -45,7 +44,6 @@ app.post(
 );
 
 app.use(express.json());
-app.use(cookieParser());
 if (process.env.NODE_ENV !== "production") app.use(morgan("dev"));
 
 app.get("/", (req, res) => res.json({ status: "ok", service: "LUXE API" }));

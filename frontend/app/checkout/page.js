@@ -53,7 +53,7 @@ export default function CheckoutPage() {
 
   // Default the confirmation email for logged-in users (they can change it per order).
   useEffect(() => {
-    if (user) setContactEmail(user.notificationEmail || user.email || "");
+    if (user) setContactEmail(user.email || "");
   }, [user]);
 
   // Pre-fill from the user's saved address (only fills fields left blank).

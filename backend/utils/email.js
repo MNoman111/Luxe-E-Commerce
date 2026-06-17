@@ -80,10 +80,16 @@ const customerHtml = (order) =>
     "You're receiving this because you placed an order at LUXE."
   );
 
-const adminHtml = (order, customerEmail) =>
+const adminHtml = (order, placedBy, confirmationEmail) =>
   shell(
     "New order received",
-    `A new order was placed by <strong>${customerEmail || "unknown"}</strong>${order.isGuest ? " (guest checkout)" : ""}.`,
+    `A new order was placed by <strong>${placedBy || "unknown"}</strong>${
+      order.isGuest ? " (guest checkout)" : " (registered account)"
+    }.${
+      order.isGuest && confirmationEmail
+        ? `<br>Confirmation sent to: ${confirmationEmail}`
+        : ""
+    }`,
     order,
     "Admin notification — LUXE store."
   );
@@ -124,14 +130,17 @@ export const sendStatusUpdateEmail = async (order, customerEmail) => {
 };
 
 // Sends confirmation to the customer and a notification to the admin.
+// customerEmail = where the confirmation goes; accountEmail = registered account (null for guests).
 // Never throws: email problems must not break order placement.
-export const sendOrderEmails = async (order, customerEmail) => {
+export const sendOrderEmails = async (order, { customerEmail, accountEmail } = {}) => {
   const t = getTransporter();
   if (!t) {
     console.log("Email not configured (SMTP_* unset) — skipping order emails.");
     return;
   }
   const id = shortId(order);
+  // Admin sees the account email for registered users, or the entered email for guests.
+  const placedBy = accountEmail || customerEmail;
   const tasks = [];
 
   if (customerEmail) {
@@ -150,7 +159,7 @@ export const sendOrderEmails = async (order, customerEmail) => {
         from: FROM,
         to: process.env.ADMIN_EMAIL,
         subject: `New order #${id} — ${money(order.totalPrice)}${order.isGuest ? " (guest)" : ""}`,
-        html: adminHtml(order, customerEmail),
+        html: adminHtml(order, placedBy, customerEmail),
       })
     );
   }

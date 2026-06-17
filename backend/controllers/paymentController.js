@@ -1,6 +1,7 @@
 import asyncHandler from "express-async-handler";
 import Stripe from "stripe";
 import Order from "../models/Order.js";
+import { sendOrderEmails } from "../utils/email.js";
 
 let stripe = null;
 const getStripe = () => {
@@ -49,8 +50,8 @@ export const createPaymentIntent = asyncHandler(async (req, res) => {
 const fulfillOrder = async (paymentIntent) => {
   const orderId = paymentIntent.metadata?.orderId;
   if (!orderId) return;
-  const order = await Order.findById(orderId);
-  if (!order || order.isPaid) return;
+  const order = await Order.findById(orderId).populate("user", "email");
+  if (!order || order.isPaid) return; // already handled (e.g. by the client) — avoids double email
   order.isPaid = true;
   order.paidAt = new Date();
   order.status = "Processing";
@@ -61,6 +62,15 @@ const fulfillOrder = async (paymentIntent) => {
   };
   await order.save();
   console.log(`Order ${orderId} marked paid via webhook.`);
+
+  try {
+    await sendOrderEmails(order, {
+      customerEmail: order.contactEmail || order.guestEmail || order.user?.email,
+      accountEmail: order.isGuest ? null : order.user?.email,
+    });
+  } catch (err) {
+    console.error("webhook confirmation email error:", err.message);
+  }
 };
 
 // @route POST /api/payment/webhook   (Stripe calls this; raw body required)

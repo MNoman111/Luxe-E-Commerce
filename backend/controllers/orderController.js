@@ -101,15 +101,17 @@ export const createOrder = asyncHandler(async (req, res) => {
     status: "Pending",
   });
 
-  // Fire confirmation + admin notification emails (never blocks order success).
-  // customerEmail = where the confirmation is sent; accountEmail = who placed it (for admin).
-  try {
-    await sendOrderEmails(order, {
-      customerEmail: email,
-      accountEmail: isGuest ? null : req.user.email,
-    });
-  } catch (err) {
-    console.error("sendOrderEmails error:", err.message);
+  // COD orders are confirmed at placement (no payment step), so email now.
+  // Stripe orders email only AFTER payment succeeds (see markOrderPaid / webhook).
+  if (order.paymentMethod === "COD") {
+    try {
+      await sendOrderEmails(order, {
+        customerEmail: email,
+        accountEmail: isGuest ? null : req.user.email,
+      });
+    } catch (err) {
+      console.error("sendOrderEmails error:", err.message);
+    }
   }
 
   res.status(201).json(order);
@@ -143,19 +145,20 @@ export const getOrderById = asyncHandler(async (req, res) => {
 
 // @route PUT /api/orders/:id/pay  (mark paid after Stripe confirmation; optionalAuth)
 export const markOrderPaid = asyncHandler(async (req, res) => {
-  const order = await Order.findById(req.params.id);
+  const order = await Order.findById(req.params.id).populate("user", "email");
   if (!order) {
     res.status(404);
     throw new Error("Order not found");
   }
   if (order.user) {
     const isOwner =
-      req.user && order.user.toString() === req.user._id.toString();
+      req.user && order.user._id.toString() === req.user._id.toString();
     if (!isOwner && !(req.user && req.user.isAdmin)) {
       res.status(403);
       throw new Error("Not authorized for this order");
     }
   }
+  const wasPaid = order.isPaid;
   order.isPaid = true;
   order.paidAt = Date.now();
   order.status = "Processing";
@@ -165,6 +168,19 @@ export const markOrderPaid = asyncHandler(async (req, res) => {
     provider: "Stripe",
   };
   const updated = await order.save();
+
+  // Send the confirmation now that payment is in — only on the first transition to paid.
+  if (!wasPaid) {
+    try {
+      await sendOrderEmails(updated, {
+        customerEmail: order.contactEmail || order.guestEmail || order.user?.email,
+        accountEmail: order.isGuest ? null : order.user?.email,
+      });
+    } catch (err) {
+      console.error("paid-confirmation email error:", err.message);
+    }
+  }
+
   res.json(updated);
 });
 

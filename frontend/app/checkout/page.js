@@ -2,17 +2,11 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { loadStripe } from "@stripe/stripe-js";
-import { Elements } from "@stripe/react-stripe-js";
 import api from "@/lib/api";
 import { useCart } from "@/context/CartContext";
 import { useAuth } from "@/context/AuthContext";
 import { currency } from "@/lib/format";
 import VoucherInput from "@/components/VoucherInput";
-import StripeForm from "./StripeForm";
-
-const pk = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY;
-const stripePromise = pk ? loadStripe(pk) : null;
 
 export default function CheckoutPage() {
   const { items, subtotal, discount, voucher, clear, ready } = useCart();
@@ -31,9 +25,7 @@ export default function CheckoutPage() {
   });
   const [saveAddress, setSaveAddress] = useState(false);
   const [method, setMethod] = useState("Stripe");
-  const [stage, setStage] = useState("form"); // form | pay
-  const [order, setOrder] = useState(null);
-  const [clientSecret, setClientSecret] = useState("");
+  const [placed, setPlaced] = useState(false);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
 
@@ -47,9 +39,8 @@ export default function CheckoutPage() {
   useEffect(() => {
     // Only bounce to the cart if it's empty AND no order has been placed yet —
     // otherwise clearing the cart after checkout would hijack the redirect.
-    if (ready && items.length === 0 && stage === "form" && !order)
-      router.push("/cart");
-  }, [ready, items, stage, order, router]);
+    if (ready && items.length === 0 && !placed) router.push("/cart");
+  }, [ready, items, placed, router]);
 
   // Default the confirmation email for logged-in users (they can change it per order).
   useEffect(() => {
@@ -97,29 +88,20 @@ export default function CheckoutPage() {
         guestEmail: user ? undefined : guestEmail,
         contactEmail: user ? contactEmail : undefined,
       });
-      setOrder(created);
+      setPlaced(true);
       await persistAddressIfRequested();
+      clear();
 
+      // COD: confirmed now. Stripe: go to the order page to pay (resumable URL).
       if (method === "COD") {
-        clear();
         router.push(`/orders/${created._id}?placed=1`);
-        return;
+      } else {
+        router.push(`/orders/${created._id}`);
       }
-
-      const intent = await api.createPaymentIntent(created._id);
-      setClientSecret(intent.clientSecret);
-      setStage("pay");
     } catch (err) {
       setError(err.message);
-    } finally {
       setBusy(false);
     }
-  };
-
-  const handlePaid = async (result) => {
-    await api.markPaid(order._id, result);
-    clear();
-    router.push(`/orders/${order._id}?placed=1`);
   };
 
   if (loading) return <div className="max-w-5xl mx-auto px-4 py-20">Loading…</div>;
@@ -142,7 +124,6 @@ export default function CheckoutPage() {
 
       <div className="grid lg:grid-cols-3 gap-10">
         <div className="lg:col-span-2">
-          {stage === "form" ? (
             <form onSubmit={placeOrder} className="space-y-8">
               <section>
                 <h2 className="font-serif text-xl mb-4">
@@ -233,20 +214,6 @@ export default function CheckoutPage() {
                   : "Continue to payment"}
               </button>
             </form>
-          ) : (
-            <section>
-              <h2 className="font-serif text-xl mb-4">Card payment</h2>
-              {stripePromise && clientSecret ? (
-                <Elements stripe={stripePromise} options={{ clientSecret }}>
-                  <StripeForm onPaid={handlePaid} />
-                </Elements>
-              ) : (
-                <p className="text-sm text-red-700">
-                  Stripe publishable key is missing. Add NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY to .env.local.
-                </p>
-              )}
-            </section>
-          )}
         </div>
 
         <aside className="bg-white rounded-lg p-6 h-fit border border-black/5">
@@ -262,11 +229,9 @@ export default function CheckoutPage() {
             ))}
           </div>
 
-          {stage === "form" && (
-            <div className="mb-4">
-              <VoucherInput />
-            </div>
-          )}
+          <div className="mb-4">
+            <VoucherInput />
+          </div>
 
           <div className="border-t border-black/10 pt-3 space-y-2 text-sm">
             <div className="flex justify-between"><span>Subtotal</span><span>{currency(subtotal)}</span></div>

@@ -18,6 +18,7 @@ const sendToken = (res, user, statusCode = 200) => {
       name: user.name,
       email: user.email,
       isAdmin: user.isAdmin,
+      savedAddress: user.savedAddress || {},
     },
   });
 };
@@ -58,4 +59,35 @@ export const logout = asyncHandler(async (req, res) => {
 // @route GET /api/auth/me
 export const getMe = asyncHandler(async (req, res) => {
   res.json({ user: req.user });
+});
+
+// @route PUT /api/auth/profile   (protected)
+// Update display name and/or saved shipping address.
+export const updateProfile = asyncHandler(async (req, res) => {
+  const { name, savedAddress } = req.body;
+  const user = await User.findById(req.user._id);
+  if (!user) {
+    res.status(404);
+    throw new Error("User not found");
+  }
+  if (typeof name === "string" && name.trim()) user.name = name.trim();
+  if (savedAddress && typeof savedAddress === "object") {
+    const fields = ["fullName", "address", "city", "postalCode", "country", "phone"];
+    user.savedAddress = {
+      ...user.savedAddress,
+      ...Object.fromEntries(
+        fields.map((f) => [f, savedAddress[f] ?? user.savedAddress?.[f] ?? ""])
+      ),
+    };
+  }
+  await user.save();
+  res.json({
+    user: {
+      _id: user._id,
+      name: user.name,
+      email: user.email,
+      isAdmin: user.isAdmin,
+      savedAddress: user.savedAddress || {},
+    },
+  });
 });

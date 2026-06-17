@@ -40,6 +40,8 @@ export const api = {
   login: (payload) => request("/auth/login", { method: "POST", body: payload }),
   logout: () => request("/auth/logout", { method: "POST", auth: true }),
   me: () => request("/auth/me", { auth: true }),
+  updateProfile: (payload) =>
+    request("/auth/profile", { method: "PUT", body: payload, auth: true }),
 
   // products
   getProducts: (qs = "") => request(`/products${qs}`),

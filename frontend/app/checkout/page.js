@@ -16,7 +16,7 @@ const stripePromise = pk ? loadStripe(pk) : null;
 
 export default function CheckoutPage() {
   const { items, subtotal, discount, voucher, clear, ready } = useCart();
-  const { user, loading } = useAuth();
+  const { user, loading, updateProfile } = useAuth();
   const router = useRouter();
 
   const [guestEmail, setGuestEmail] = useState("");
@@ -28,6 +28,7 @@ export default function CheckoutPage() {
     country: "",
     phone: "",
   });
+  const [saveAddress, setSaveAddress] = useState(false);
   const [method, setMethod] = useState("Stripe");
   const [stage, setStage] = useState("form"); // form | pay
   const [order, setOrder] = useState(null);
@@ -49,6 +50,30 @@ export default function CheckoutPage() {
       router.push("/cart");
   }, [ready, items, stage, order, router]);
 
+  // Pre-fill from the user's saved address (only fills fields left blank).
+  useEffect(() => {
+    if (!user?.savedAddress) return;
+    setAddress((prev) => {
+      const next = { ...prev };
+      ["fullName", "address", "city", "postalCode", "country", "phone"].forEach(
+        (k) => {
+          if (!next[k] && user.savedAddress[k]) next[k] = user.savedAddress[k];
+        }
+      );
+      return next;
+    });
+  }, [user]);
+
+  const persistAddressIfRequested = async () => {
+    if (user && saveAddress) {
+      try {
+        await updateProfile({ savedAddress: address });
+      } catch (err) {
+        console.error("Could not save address:", err.message);
+      }
+    }
+  };
+
   const placeOrder = async (e) => {
     e.preventDefault();
     setError("");
@@ -66,6 +91,7 @@ export default function CheckoutPage() {
         guestEmail: user ? undefined : guestEmail,
       });
       setOrder(created);
+      await persistAddressIfRequested();
 
       if (method === "COD") {
         clear();
@@ -111,9 +137,14 @@ export default function CheckoutPage() {
         <div className="lg:col-span-2">
           {stage === "form" ? (
             <form onSubmit={placeOrder} className="space-y-8">
-              {!user && (
-                <section>
-                  <h2 className="font-serif text-xl mb-4">Contact</h2>
+              <section>
+                <h2 className="font-serif text-xl mb-4">Contact</h2>
+                {user ? (
+                  <p className="text-sm text-black/70 bg-black/[0.03] border border-black/10 rounded-md px-4 py-3">
+                    Your order confirmation will be sent to{" "}
+                    <strong>{user.email}</strong>.
+                  </p>
+                ) : (
                   <input
                     type="email"
                     required
@@ -122,8 +153,8 @@ export default function CheckoutPage() {
                     value={guestEmail}
                     onChange={(e) => setGuestEmail(e.target.value)}
                   />
-                </section>
-              )}
+                )}
+              </section>
 
               <section>
                 <h2 className="font-serif text-xl mb-4">Shipping address</h2>
@@ -147,6 +178,16 @@ export default function CheckoutPage() {
                     value={address.country}
                     onChange={(e) => setAddress({ ...address, country: e.target.value })} />
                 </div>
+                {user && (
+                  <label className="flex items-center gap-2 text-sm mt-4 text-black/70">
+                    <input
+                      type="checkbox"
+                      checked={saveAddress}
+                      onChange={(e) => setSaveAddress(e.target.checked)}
+                    />
+                    Save this address to my account for next time
+                  </label>
+                )}
               </section>
 
               <section>

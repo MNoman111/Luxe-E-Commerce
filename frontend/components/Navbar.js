@@ -43,6 +43,8 @@ export default function Navbar() {
               )}
               <Link href="/orders" className="hover:text-accent">Orders</Link>
               <span className="text-black/30">|</span>
+              <Link href="/account" className="hover:text-accent">Account</Link>
+              <span className="text-black/30">|</span>
               <button onClick={logout} className="hover:text-accent">
                 Logout
               </button>
@@ -80,6 +82,7 @@ export default function Navbar() {
           {user ? (
             <>
               <Link href="/orders" onClick={() => setOpen(false)}>Orders</Link>
+              <Link href="/account" onClick={() => setOpen(false)}>Account</Link>
               <button className="text-left" onClick={() => { logout(); setOpen(false); }}>
                 Logout
               </button>

@@ -13,6 +13,15 @@ const userSchema = new mongoose.Schema(
     },
     password: { type: String, required: true, minlength: 6, select: false },
     isAdmin: { type: Boolean, default: false },
+    // Default shipping details, used to pre-fill checkout.
+    savedAddress: {
+      fullName: { type: String, default: "" },
+      address: { type: String, default: "" },
+      city: { type: String, default: "" },
+      postalCode: { type: String, default: "" },
+      country: { type: String, default: "" },
+      phone: { type: String, default: "" },
+    },
   },
   { timestamps: true }
 );

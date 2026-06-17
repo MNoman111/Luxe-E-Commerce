@@ -47,12 +47,17 @@ export const createOrder = asyncHandler(async (req, res) => {
   const { orderItems: lineItems, itemsPrice } = await buildOrderItems(orderItems);
 
   // Apply voucher (server-side validation, so it can't be faked).
+  // Vouchers are for signed-in users only and can be redeemed once per user.
   let discountAmount = 0;
   let appliedCode = null;
   if (voucherCode) {
+    if (isGuest) {
+      res.status(400);
+      throw new Error("Please sign in to use a voucher code");
+    }
     let voucher;
     try {
-      voucher = await Voucher.validateCode(voucherCode, itemsPrice);
+      voucher = await Voucher.validateCode(voucherCode, itemsPrice, req.user._id);
     } catch (err) {
       res.status(400);
       throw err;
@@ -60,6 +65,7 @@ export const createOrder = asyncHandler(async (req, res) => {
     discountAmount = voucher.discountFor(itemsPrice);
     appliedCode = voucher.code;
     voucher.usedCount += 1;
+    voucher.usedBy.push(req.user._id);
     await voucher.save();
   }
 

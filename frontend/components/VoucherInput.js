@@ -1,13 +1,32 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import Link from "next/link";
 import api from "@/lib/api";
 import { useCart } from "@/context/CartContext";
+import { useAuth } from "@/context/AuthContext";
 
 export default function VoucherInput() {
   const { subtotal, voucher, applyVoucher, removeVoucher } = useCart();
+  const { user, loading } = useAuth();
   const [code, setCode] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+
+  // Vouchers are for signed-in users only — drop any applied voucher on logout.
+  useEffect(() => {
+    if (!loading && !user && voucher) removeVoucher();
+  }, [loading, user, voucher, removeVoucher]);
+
+  if (!loading && !user) {
+    return (
+      <div className="text-sm text-black/60 border border-black/10 rounded-md px-3 py-2">
+        <Link href="/login?redirect=/cart" className="text-accent hover:underline">
+          Sign in
+        </Link>{" "}
+        to apply a voucher code.
+      </div>
+    );
+  }
 
   const apply = async (e) => {
     e.preventDefault();

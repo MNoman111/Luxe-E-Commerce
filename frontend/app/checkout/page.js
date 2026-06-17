@@ -62,7 +62,7 @@ export default function CheckoutPage() {
         })),
         shippingAddress: address,
         paymentMethod: method,
-        voucherCode: voucher?.code || undefined,
+        voucherCode: user && voucher ? voucher.code : undefined,
         guestEmail: user ? undefined : guestEmail,
       });
       setOrder(created);

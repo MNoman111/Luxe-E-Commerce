@@ -2,13 +2,13 @@ import asyncHandler from "express-async-handler";
 import Voucher from "../models/Voucher.js";
 
 // @route POST /api/vouchers/validate   { code, subtotal }
-// Public: checks a code against a subtotal and returns the discount it would give.
+// Signed-in only: checks a code (incl. one-use-per-user) and returns the discount.
 export const validateVoucher = asyncHandler(async (req, res) => {
   const { code, subtotal } = req.body;
   const amount = Number(subtotal) || 0;
   let voucher;
   try {
-    voucher = await Voucher.validateCode(code, amount);
+    voucher = await Voucher.validateCode(code, amount, req.user._id);
   } catch (err) {
     res.status(400);
     throw err;

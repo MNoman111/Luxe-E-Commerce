@@ -64,9 +64,13 @@ export const api = {
       auth: true,
     }),
 
-  // vouchers
+  // vouchers (signed-in users only)
   validateVoucher: (code, subtotal) =>
-    request("/vouchers/validate", { method: "POST", body: { code, subtotal } }),
+    request("/vouchers/validate", {
+      method: "POST",
+      body: { code, subtotal },
+      auth: true,
+    }),
 
   // admin
   adminVouchers: () => request("/vouchers", { auth: true }),

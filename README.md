@@ -14,6 +14,7 @@ A complete clothing store built with **Next.js** (storefront), **Express + Mongo
 - **Guest checkout** — place an order with just an email, no account required
 - **Voucher / coupon codes** with expiry, minimum-order and usage limits (percentage or fixed amount), managed from the admin panel
 - Checkout with **Stripe card payments** *and* **Cash on Delivery**
+- **Order emails** — confirmation to the customer and a notification to the admin on every order (via SMTP / Resend)
 - Server-side price recalculation (cart totals can't be tampered with)
 - Order history and order detail pages
 - **Stripe webhook** that confirms payments server-side (the source of truth)

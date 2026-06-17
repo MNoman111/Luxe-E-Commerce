@@ -62,6 +62,30 @@ Right now the API still has the placeholder `CLIENT_URL`. Point it at the real s
 
 ---
 
+## 4b. Order emails with Resend (optional but recommended)
+
+The store sends a confirmation email to the customer and a notification to the admin whenever an order is placed. It uses plain SMTP, so any provider works; these steps use **Resend** (free, no card).
+
+1. Sign up at [resend.com](https://resend.com) (GitHub login works).
+2. **API Keys → Create API Key** → copy it (starts with `re_…`). This is your SMTP password.
+3. **Sender address:**
+   - *Quick test:* you can send from `onboarding@resend.dev`, but Resend will only deliver to the email address you signed up with. Fine for trying it out.
+   - *Real use:* **Domains → Add Domain**, add the DNS records Resend shows you, and once verified you can send from e.g. `orders@yourdomain.com` to anyone.
+4. In the **backend** Vercel project → **Settings → Environment Variables**, add:
+
+   | Name | Value |
+   |------|-------|
+   | `SMTP_HOST` | `smtp.resend.com` |
+   | `SMTP_PORT` | `465` |
+   | `SMTP_USER` | `resend` |
+   | `SMTP_PASS` | your `re_…` API key |
+   | `EMAIL_FROM` | `LUXE <onboarding@resend.dev>` (or `orders@yourdomain.com` once verified) |
+   | `ADMIN_EMAIL` | the address that should receive new-order notifications |
+
+5. **Redeploy** the backend project.
+
+If you skip this, the store still works — it just logs "Email not configured" and sends nothing.
+
 ## 5. Seed the database (once)
 
 Load the 16 products and demo accounts. Run locally, pointed at Atlas:

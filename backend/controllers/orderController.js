@@ -2,6 +2,7 @@ import asyncHandler from "express-async-handler";
 import Order from "../models/Order.js";
 import Product from "../models/Product.js";
 import Voucher from "../models/Voucher.js";
+import { sendOrderEmails, sendStatusUpdateEmail } from "../utils/email.js";
 
 const TAX_RATE = 0.08;
 const FREE_SHIPPING_THRESHOLD = 100;
@@ -83,6 +84,14 @@ export const createOrder = asyncHandler(async (req, res) => {
     paymentMethod: paymentMethod === "COD" ? "COD" : "Stripe",
     status: "Pending",
   });
+
+  // Fire confirmation + admin notification emails (never blocks order success).
+  try {
+    await sendOrderEmails(order, email);
+  } catch (err) {
+    console.error("sendOrderEmails error:", err.message);
+  }
+
   res.status(201).json(order);
 });
 
@@ -155,7 +164,7 @@ export const updateOrderStatus = asyncHandler(async (req, res) => {
     res.status(400);
     throw new Error("Invalid status");
   }
-  const order = await Order.findById(req.params.id);
+  const order = await Order.findById(req.params.id).populate("user", "name email");
   if (!order) {
     res.status(404);
     throw new Error("Order not found");
@@ -170,6 +179,15 @@ export const updateOrderStatus = asyncHandler(async (req, res) => {
     }
   }
   const updated = await order.save();
+
+  // Notify the customer of the new status (never blocks the response).
+  try {
+    const customerEmail = order.user?.email || order.guestEmail;
+    await sendStatusUpdateEmail(updated, customerEmail);
+  } catch (err) {
+    console.error("status email error:", err.message);
+  }
+
   res.json(updated);
 });
 

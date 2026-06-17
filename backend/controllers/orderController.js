@@ -31,17 +31,29 @@ const buildOrderItems = async (items) => {
 
 // @route POST /api/orders   (logged-in users and guests via optionalAuth)
 export const createOrder = asyncHandler(async (req, res) => {
-  const { orderItems, shippingAddress, paymentMethod, voucherCode, guestEmail } = req.body;
+  const { orderItems, shippingAddress, paymentMethod, voucherCode, guestEmail, contactEmail } =
+    req.body;
   if (!orderItems || orderItems.length === 0) {
     res.status(400);
     throw new Error("No order items");
   }
 
   const isGuest = !req.user;
-  const email = isGuest ? (guestEmail || shippingAddress?.email) : req.user.email;
-  if (isGuest && !email) {
-    res.status(400);
-    throw new Error("An email address is required to place a guest order");
+  // Where the confirmation goes: guests use their entered email; logged-in users
+  // may override per order (contactEmail), else their saved notification email, else login email.
+  let email;
+  if (isGuest) {
+    email = (guestEmail || shippingAddress?.email || "").trim();
+    if (!email) {
+      res.status(400);
+      throw new Error("An email address is required to place a guest order");
+    }
+  } else {
+    email = (
+      (contactEmail && contactEmail.trim()) ||
+      req.user.notificationEmail ||
+      req.user.email
+    ).toLowerCase();
   }
 
   const { orderItems: lineItems, itemsPrice } = await buildOrderItems(orderItems);
@@ -79,6 +91,7 @@ export const createOrder = asyncHandler(async (req, res) => {
     user: req.user?._id,
     isGuest,
     guestEmail: isGuest ? email : undefined,
+    contactEmail: email,
     orderItems: lineItems,
     itemsPrice,
     discountAmount,
@@ -188,7 +201,7 @@ export const updateOrderStatus = asyncHandler(async (req, res) => {
 
   // Notify the customer of the new status (never blocks the response).
   try {
-    const customerEmail = order.user?.email || order.guestEmail;
+    const customerEmail = order.contactEmail || order.user?.email || order.guestEmail;
     await sendStatusUpdateEmail(updated, customerEmail);
   } catch (err) {
     console.error("status email error:", err.message);

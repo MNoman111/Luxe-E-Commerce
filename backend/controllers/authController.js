@@ -18,6 +18,7 @@ const sendToken = (res, user, statusCode = 200) => {
       name: user.name,
       email: user.email,
       isAdmin: user.isAdmin,
+      notificationEmail: user.notificationEmail || "",
       savedAddress: user.savedAddress || {},
     },
   });
@@ -64,13 +65,17 @@ export const getMe = asyncHandler(async (req, res) => {
 // @route PUT /api/auth/profile   (protected)
 // Update display name and/or saved shipping address.
 export const updateProfile = asyncHandler(async (req, res) => {
-  const { name, savedAddress } = req.body;
+  const { name, notificationEmail, savedAddress } = req.body;
   const user = await User.findById(req.user._id);
   if (!user) {
     res.status(404);
     throw new Error("User not found");
   }
   if (typeof name === "string" && name.trim()) user.name = name.trim();
+  // The login email is fixed; this is only where order confirmations are sent.
+  if (typeof notificationEmail === "string") {
+    user.notificationEmail = notificationEmail.trim().toLowerCase();
+  }
   if (savedAddress && typeof savedAddress === "object") {
     const fields = ["fullName", "address", "city", "postalCode", "country", "phone"];
     user.savedAddress = {
@@ -87,6 +92,7 @@ export const updateProfile = asyncHandler(async (req, res) => {
       name: user.name,
       email: user.email,
       isAdmin: user.isAdmin,
+      notificationEmail: user.notificationEmail || "",
       savedAddress: user.savedAddress || {},
     },
   });

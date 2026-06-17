@@ -293,13 +293,27 @@ const products = [
 const run = async () => {
   await connectDB();
   try {
-    await Product.deleteMany();
-    await Product.insertMany(products);
-    console.log(`Seeded ${products.length} products.`);
+    // Upsert by slug so product _ids stay STABLE across reseeds.
+    // (deleteMany + insertMany would mint new ids and invalidate any saved carts.)
+    for (const p of products) {
+      await Product.findOneAndUpdate({ slug: p.slug }, { $set: p }, {
+        upsert: true,
+        new: true,
+        setDefaultsOnInsert: true,
+      });
+    }
+    console.log(`Seeded/updated ${products.length} products (ids preserved).`);
 
-    await Voucher.deleteMany();
-    await Voucher.insertMany(vouchers);
-    console.log(`Seeded ${vouchers.length} vouchers (try WELCOME10, SAVE20, SUMMER25).`);
+    // Upsert vouchers by code; preserve existing usage counters.
+    for (const v of vouchers) {
+      const { code, ...rest } = v;
+      await Voucher.updateOne(
+        { code },
+        { $set: rest, $setOnInsert: { usedCount: 0, usedBy: [] } },
+        { upsert: true }
+      );
+    }
+    console.log(`Seeded/updated ${vouchers.length} vouchers (try WELCOME10, SAVE20, SUMMER25).`);
 
     // Optional demo admin + customer accounts
     const adminEmail = "admin@luxe.test";

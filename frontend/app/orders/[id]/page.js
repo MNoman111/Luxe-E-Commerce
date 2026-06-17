@@ -48,7 +48,7 @@ function OrderInner() {
               ? "You'll pay in cash on delivery. "
               : "Payment received. "}
             A confirmation email is on its way to{" "}
-            {order.user?.email || order.guestEmail || "your inbox"}.
+            {order.contactEmail || order.guestEmail || order.user?.email || "your inbox"}.
           </p>
           <div className="mt-6 flex flex-wrap gap-3 justify-center">
             <Link

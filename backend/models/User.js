@@ -13,6 +13,8 @@ const userSchema = new mongoose.Schema(
     },
     password: { type: String, required: true, minlength: 6, select: false },
     isAdmin: { type: Boolean, default: false },
+    // Default address for order confirmations (login email stays fixed).
+    notificationEmail: { type: String, lowercase: true, trim: true, default: "" },
     // Default shipping details, used to pre-fill checkout.
     savedAddress: {
       fullName: { type: String, default: "" },

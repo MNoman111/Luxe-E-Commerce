@@ -15,6 +15,8 @@ const orderSchema = new mongoose.Schema(
     user: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
     isGuest: { type: Boolean, default: false },
     guestEmail: { type: String, lowercase: true, trim: true },
+    // The address this order's confirmation email was sent to.
+    contactEmail: { type: String, lowercase: true, trim: true },
     orderItems: [orderItemSchema],
     shippingAddress: {
       fullName: String,

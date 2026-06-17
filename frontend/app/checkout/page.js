@@ -20,6 +20,7 @@ export default function CheckoutPage() {
   const router = useRouter();
 
   const [guestEmail, setGuestEmail] = useState("");
+  const [contactEmail, setContactEmail] = useState(""); // logged-in: where confirmation goes
   const [address, setAddress] = useState({
     fullName: "",
     address: "",
@@ -49,6 +50,11 @@ export default function CheckoutPage() {
     if (ready && items.length === 0 && stage === "form" && !order)
       router.push("/cart");
   }, [ready, items, stage, order, router]);
+
+  // Default the confirmation email for logged-in users (they can change it per order).
+  useEffect(() => {
+    if (user) setContactEmail(user.notificationEmail || user.email || "");
+  }, [user]);
 
   // Pre-fill from the user's saved address (only fills fields left blank).
   useEffect(() => {
@@ -89,6 +95,7 @@ export default function CheckoutPage() {
         paymentMethod: method,
         voucherCode: user && voucher ? voucher.code : undefined,
         guestEmail: user ? undefined : guestEmail,
+        contactEmail: user ? contactEmail : undefined,
       });
       setOrder(created);
       await persistAddressIfRequested();
@@ -138,12 +145,23 @@ export default function CheckoutPage() {
           {stage === "form" ? (
             <form onSubmit={placeOrder} className="space-y-8">
               <section>
-                <h2 className="font-serif text-xl mb-4">Contact</h2>
+                <h2 className="font-serif text-xl mb-4">
+                  {user ? "Send order confirmation to" : "Contact"}
+                </h2>
                 {user ? (
-                  <p className="text-sm text-black/70 bg-black/[0.03] border border-black/10 rounded-md px-4 py-3">
-                    Your order confirmation will be sent to{" "}
-                    <strong>{user.email}</strong>.
-                  </p>
+                  <>
+                    <input
+                      type="email"
+                      required
+                      className="input"
+                      value={contactEmail}
+                      onChange={(e) => setContactEmail(e.target.value)}
+                    />
+                    <p className="text-xs text-black/50 mt-1">
+                      Defaults to your account email. Change it here to send this
+                      order's details elsewhere.
+                    </p>
+                  </>
                 ) : (
                   <input
                     type="email"

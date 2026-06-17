@@ -18,6 +18,7 @@ export default function AccountPage() {
   const router = useRouter();
 
   const [name, setName] = useState("");
+  const [notifyEmail, setNotifyEmail] = useState("");
   const [address, setAddress] = useState(emptyAddress);
   const [status, setStatus] = useState(""); // "", "saved", error message
   const [busy, setBusy] = useState(false);
@@ -29,6 +30,7 @@ export default function AccountPage() {
   useEffect(() => {
     if (user) {
       setName(user.name || "");
+      setNotifyEmail(user.notificationEmail || user.email || "");
       setAddress({ ...emptyAddress, ...(user.savedAddress || {}) });
     }
   }, [user]);
@@ -43,7 +45,7 @@ export default function AccountPage() {
     setStatus("");
     setBusy(true);
     try {
-      await updateProfile({ name, savedAddress: address });
+      await updateProfile({ name, notificationEmail: notifyEmail, savedAddress: address });
       setStatus("saved");
       setTimeout(() => setStatus(""), 2500);
     } catch (err) {
@@ -73,9 +75,23 @@ export default function AccountPage() {
       )}
 
       <form onSubmit={save} className="space-y-6">
-        <div>
-          <label className="block text-sm mb-1">Name</label>
-          <input className="acc-input" value={name} onChange={(e) => setName(e.target.value)} />
+        <div className="grid sm:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm mb-1">Name</label>
+            <input className="acc-input" value={name} onChange={(e) => setName(e.target.value)} />
+          </div>
+          <div>
+            <label className="block text-sm mb-1">Order confirmation email</label>
+            <input
+              type="email"
+              className="acc-input"
+              value={notifyEmail}
+              onChange={(e) => setNotifyEmail(e.target.value)}
+            />
+            <p className="text-xs text-black/50 mt-1">
+              Where we send order details. Your login email ({user.email}) stays the same.
+            </p>
+          </div>
         </div>
 
         <div>

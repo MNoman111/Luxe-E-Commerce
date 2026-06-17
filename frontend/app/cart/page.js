@@ -1,6 +1,8 @@
 "use client";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import api from "@/lib/api";
 import { useCart } from "@/context/CartContext";
 import { currency, FALLBACK_IMG } from "@/lib/format";
 import VoucherInput from "@/components/VoucherInput";
@@ -8,6 +10,35 @@ import VoucherInput from "@/components/VoucherInput";
 export default function CartPage() {
   const { items, updateQty, removeItem, subtotal, discount } = useCart();
   const router = useRouter();
+  const [notice, setNotice] = useState("");
+  const checked = useRef(false);
+
+  // Self-heal: drop any cart items whose product no longer exists (e.g. removed
+  // from the catalog), so a stale cart can't block checkout.
+  useEffect(() => {
+    if (checked.current || items.length === 0) return;
+    checked.current = true;
+    (async () => {
+      const results = await Promise.all(
+        items.map(async (i) => {
+          try {
+            await api.getProduct(i.product);
+            return null;
+          } catch {
+            return i.lineId;
+          }
+        })
+      );
+      const missing = results.filter(Boolean);
+      if (missing.length) {
+        missing.forEach(removeItem);
+        setNotice(
+          "Some items were removed from your cart because they're no longer available."
+        );
+      }
+    })();
+  }, [items, removeItem]);
+
   const shipping = subtotal >= 100 || subtotal === 0 ? 0 : 9.99;
   const tax = +((subtotal - discount) * 0.08).toFixed(2);
   const total = +(subtotal - discount + shipping + tax).toFixed(2);
@@ -16,15 +47,27 @@ export default function CartPage() {
     return (
       <div className="max-w-3xl mx-auto px-4 py-24 text-center">
         <h1 className="font-serif text-4xl mb-4">Your cart is empty</h1>
-        <Link href="/products" className="text-accent hover:underline">
-          Continue shopping →
-        </Link>
+        {notice && (
+          <p className="text-sm text-amber-700 bg-amber-50 inline-block px-4 py-2 rounded mb-4">
+            {notice}
+          </p>
+        )}
+        <div>
+          <Link href="/products" className="text-accent hover:underline">
+            Continue shopping →
+          </Link>
+        </div>
       </div>
     );
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-10">
       <h1 className="font-serif text-4xl mb-8">Shopping Cart</h1>
+      {notice && (
+        <div className="mb-6 text-sm text-amber-800 bg-amber-50 border border-amber-200 px-4 py-2 rounded">
+          {notice}
+        </div>
+      )}
       <div className="grid lg:grid-cols-3 gap-10">
         <div className="lg:col-span-2 divide-y divide-black/10">
           {items.map((i) => (

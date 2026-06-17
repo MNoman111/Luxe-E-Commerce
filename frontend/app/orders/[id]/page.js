@@ -32,17 +32,44 @@ function OrderInner() {
   return (
     <div className="max-w-3xl mx-auto px-4 py-10">
       {placed && (
-        <div className="mb-6 bg-green-50 text-green-800 px-5 py-4 rounded-lg">
-          <p className="font-medium">Thank you! Your order has been placed.</p>
-          <p className="text-sm">
-            {order.paymentMethod === "COD"
-              ? "You'll pay in cash on delivery."
-              : "Payment received."}
+        <div className="mb-8 text-center bg-green-50 border border-green-200 rounded-xl px-6 py-10">
+          <div className="mx-auto mb-4 w-14 h-14 rounded-full bg-green-600 text-white flex items-center justify-center text-3xl">
+            ✓
+          </div>
+          <h2 className="font-serif text-3xl text-green-900 mb-2">
+            Thank you for your order!
+          </h2>
+          <p className="text-green-800">
+            Your order <strong>#{order._id.slice(-8)}</strong> has been placed
+            successfully.
           </p>
+          <p className="text-sm text-green-700 mt-1">
+            {order.paymentMethod === "COD"
+              ? "You'll pay in cash on delivery. "
+              : "Payment received. "}
+            A confirmation email is on its way to{" "}
+            {order.user?.email || order.guestEmail || "your inbox"}.
+          </p>
+          <div className="mt-6 flex flex-wrap gap-3 justify-center">
+            <Link
+              href="/products"
+              className="bg-ink text-white px-6 py-2.5 text-sm tracking-wide hover:bg-accent transition"
+            >
+              Continue shopping
+            </Link>
+            <a
+              href="#order-details"
+              className="px-6 py-2.5 text-sm border border-green-300 rounded-md text-green-800 hover:bg-green-100 transition"
+            >
+              View order details
+            </a>
+          </div>
         </div>
       )}
 
-      <h1 className="font-serif text-3xl mb-1">Order #{order._id.slice(-8)}</h1>
+      <h1 id="order-details" className="font-serif text-3xl mb-1 scroll-mt-20">
+        Order #{order._id.slice(-8)}
+      </h1>
       <p className="text-sm text-black/50 mb-6">
         Placed {new Date(order.createdAt).toLocaleString()}
       </p>

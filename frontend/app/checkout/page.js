@@ -43,8 +43,11 @@ export default function CheckoutPage() {
   const total = +(subtotal - discount + shipping + tax).toFixed(2);
 
   useEffect(() => {
-    if (ready && items.length === 0 && stage === "form") router.push("/cart");
-  }, [ready, items, stage, router]);
+    // Only bounce to the cart if it's empty AND no order has been placed yet —
+    // otherwise clearing the cart after checkout would hijack the redirect.
+    if (ready && items.length === 0 && stage === "form" && !order)
+      router.push("/cart");
+  }, [ready, items, stage, order, router]);
 
   const placeOrder = async (e) => {
     e.preventDefault();

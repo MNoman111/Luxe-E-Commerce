@@ -83,9 +83,7 @@ const customerHtml = (order) =>
 const adminHtml = (order, placedBy, confirmationEmail) =>
   shell(
     "New order received",
-    `A new order was placed by <strong>${placedBy || "unknown"}</strong>${
-      order.isGuest ? " (guest checkout)" : " (registered account)"
-    }.${
+    `A new order was placed by <strong>${placedBy || "unknown"}</strong>.${
       order.isGuest && confirmationEmail
         ? `<br>Confirmation sent to: ${confirmationEmail}`
         : ""

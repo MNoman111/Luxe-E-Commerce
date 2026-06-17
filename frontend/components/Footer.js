@@ -27,7 +27,7 @@ export default function Footer() {
         </div>
       </div>
       <div className="border-t border-white/10 py-5 text-center text-xs text-white/50">
-        © {new Date().getFullYear()} LUXE. Demo store for portfolio use.
+        © {new Date().getFullYear()} LUXE. All rights reserved.
       </div>
     </footer>
   );

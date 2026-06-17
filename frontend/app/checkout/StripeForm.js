@@ -52,9 +52,6 @@ export default function StripeForm({ onPaid }) {
       >
         {busy ? "Processing…" : "Pay now"}
       </button>
-      <p className="text-xs text-black/50 text-center">
-        Test card: 4242 4242 4242 4242 · any future date · any CVC.
-      </p>
     </form>
   );
 }

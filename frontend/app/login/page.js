@@ -31,7 +31,7 @@ function LoginInner() {
     <div className="max-w-md mx-auto px-4 py-16">
       <h1 className="font-serif text-4xl mb-2">Sign in</h1>
       <p className="text-black/60 mb-8 text-sm">
-        Welcome back. Demo: customer@luxe.test / customer123
+        Welcome back. Sign in to continue.
       </p>
       {error && (
         <div className="mb-4 text-sm bg-red-50 text-red-700 px-4 py-2 rounded">{error}</div>

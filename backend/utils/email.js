@@ -80,14 +80,10 @@ const customerHtml = (order) =>
     "You're receiving this because you placed an order at LUXE."
   );
 
-const adminHtml = (order, placedBy, confirmationEmail) =>
+const adminHtml = (order, placedBy) =>
   shell(
     "New order received",
-    `A new order was placed by <strong>${placedBy || "unknown"}</strong>.${
-      order.isGuest && confirmationEmail
-        ? `<br>Confirmation sent to: ${confirmationEmail}`
-        : ""
-    }`,
+    `A new order was placed by <strong>${placedBy || "unknown"}</strong>.`,
     order,
     "Admin notification — LUXE store."
   );
@@ -157,7 +153,7 @@ export const sendOrderEmails = async (order, { customerEmail, accountEmail } = {
         from: FROM,
         to: process.env.ADMIN_EMAIL,
         subject: `New order #${id} — ${money(order.totalPrice)}${order.isGuest ? " (guest)" : ""}`,
-        html: adminHtml(order, placedBy, customerEmail),
+        html: adminHtml(order, placedBy),
       })
     );
   }

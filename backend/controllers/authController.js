@@ -9,14 +9,8 @@ const signToken = (id) =>
 
 const sendToken = (res, user, statusCode = 200) => {
   const token = signToken(user._id);
-  const isProd = process.env.NODE_ENV === "production";
-  res.cookie("token", token, {
-    httpOnly: true,
-    // Cross-site (frontend and API on different domains) requires SameSite=None + Secure.
-    sameSite: isProd ? "none" : "lax",
-    secure: isProd,
-    maxAge: 7 * 24 * 60 * 60 * 1000,
-  });
+  // Token-only auth: the client stores this and sends it as a Bearer header.
+  // No auth cookie is set, so client-side logout fully de-authenticates the user.
   res.status(statusCode).json({
     token,
     user: {
@@ -56,8 +50,8 @@ export const login = asyncHandler(async (req, res) => {
 });
 
 // @route POST /api/auth/logout
+// Token-only auth: the client discards its stored token. Endpoint kept for symmetry.
 export const logout = asyncHandler(async (req, res) => {
-  res.clearCookie("token");
   res.json({ message: "Logged out" });
 });
 

@@ -2,15 +2,16 @@ import jwt from "jsonwebtoken";
 import asyncHandler from "express-async-handler";
 import User from "../models/User.js";
 
-export const protect = asyncHandler(async (req, res, next) => {
-  let token;
+// Reads the bearer token from the Authorization header. Token-only auth (no cookies)
+// so logging out on the client (clearing the token) fully de-authenticates the request.
+const getBearer = (req) => {
   const header = req.headers.authorization;
+  if (header && header.startsWith("Bearer ")) return header.split(" ")[1];
+  return null;
+};
 
-  if (header && header.startsWith("Bearer ")) {
-    token = header.split(" ")[1];
-  } else if (req.cookies && req.cookies.token) {
-    token = req.cookies.token;
-  }
+export const protect = asyncHandler(async (req, res, next) => {
+  const token = getBearer(req);
 
   if (!token) {
     res.status(401);
@@ -40,10 +41,7 @@ export const admin = (req, res, next) => {
 // Sets req.user if a valid token is present, but never blocks the request.
 // Used for endpoints that work for both logged-in users and guests.
 export const optionalAuth = asyncHandler(async (req, res, next) => {
-  let token;
-  const header = req.headers.authorization;
-  if (header && header.startsWith("Bearer ")) token = header.split(" ")[1];
-  else if (req.cookies && req.cookies.token) token = req.cookies.token;
+  const token = getBearer(req);
 
   if (token) {
     try {

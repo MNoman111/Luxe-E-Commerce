@@ -25,7 +25,7 @@ export const validateVoucher = asyncHandler(async (req, res) => {
 
 // @route GET /api/vouchers   (admin)
 export const getVouchers = asyncHandler(async (req, res) => {
-  const vouchers = await Voucher.find({}).sort({ createdAt: -1 });
+  const vouchers = await Voucher.find({}).sort({ createdAt: -1 }).lean();
   res.json(vouchers);
 });
 

@@ -13,8 +13,8 @@ A complete clothing store built with **Next.js** (storefront), **Express + Mongo
 - JWT auth: register, login, logout, protected routes
 - **Guest checkout** — place an order with just an email, no account required
 - **Voucher / coupon codes** with expiry, minimum-order and usage limits (percentage or fixed amount), managed from the admin panel — signed-in users only, redeemable once per user
-- Multiple payment methods: **Stripe card payments**, **JazzCash / Easypaisa / bank transfer** (manual), and **Cash on Delivery**
-- Stripe orders are created **only after payment is confirmed** (amount verified server-side against the PaymentIntent)
+- Payment methods: **Stripe card payments** and **Cash on Delivery**
+- Stripe orders are created **only after payment is confirmed** (amount verified server-side), with a webhook safety net so a paid order is never lost
 - **Order emails** — confirmation to the customer and a notification to the admin on every order (via SMTP / Resend)
 - Server-side price recalculation (cart totals can't be tampered with)
 - Order history and order detail pages
@@ -109,13 +109,12 @@ Use Stripe's test card at checkout:
 - **Card:** `4242 4242 4242 4242`
 - **Expiry:** any future date · **CVC:** any 3 digits · **ZIP:** any
 
-Or choose **JazzCash / Easypaisa / Bank Transfer** (manual) or **Cash on Delivery** to place an order with no card.
+Or choose **Cash on Delivery** to place an order with no card.
 
 ## How payment works
 
-- **Stripe:** at checkout the server computes the amount and creates a Stripe PaymentIntent (no order yet). The customer pays; only after the payment **succeeds** does the client create the order, and the server verifies the PaymentIntent is `succeeded` and its amount matches the order total before saving. So no unpaid Stripe orders are ever created, and the amount can't be tampered with.
-- **JazzCash / Easypaisa / Bank transfer:** the customer transfers to your configured account and enters their transaction ID. The order is placed *pending*; an admin verifies the transfer and clicks **Mark as paid**.
-- **Cash on Delivery:** order placed immediately; paid on delivery.
+- **Stripe:** at checkout the server computes the amount and creates a Stripe PaymentIntent plus a short-lived draft (no order yet). The customer pays; only after the payment **succeeds** is the order created — by the browser, or by the Stripe webhook as a safety net if the browser drops out. The server verifies the PaymentIntent before saving, so no unpaid Stripe orders are ever created and a paid order is never lost.
+- **Cash on Delivery:** order placed immediately; paid on delivery (admins can mark it paid early from the dashboard).
 
 ## Admin Dashboard
 

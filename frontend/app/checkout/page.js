@@ -9,7 +9,6 @@ import { useCart } from "@/context/CartContext";
 import { useAuth } from "@/context/AuthContext";
 import { currency } from "@/lib/format";
 import VoucherInput from "@/components/VoucherInput";
-import { PAYMENT_INFO } from "@/lib/paymentInfo";
 import StripeForm from "./StripeForm";
 
 const pk = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY;
@@ -32,7 +31,6 @@ export default function CheckoutPage() {
   });
   const [saveAddress, setSaveAddress] = useState(false);
   const [method, setMethod] = useState("Stripe");
-  const [transactionId, setTransactionId] = useState("");
   const [placed, setPlaced] = useState(false);
   const [stage, setStage] = useState("form"); // form | pay (Stripe card step)
   const [clientSecret, setClientSecret] = useState("");
@@ -85,7 +83,6 @@ export default function CheckoutPage() {
     orderItems: items.map((i) => ({ product: i.product, qty: i.qty, size: i.size })),
     shippingAddress: address,
     paymentMethod: method,
-    paymentReference: method === "BankTransfer" ? transactionId : undefined,
     voucherCode: user && voucher ? voucher.code : undefined,
     guestEmail: user ? undefined : guestEmail,
     contactEmail: user ? contactEmail : undefined,
@@ -236,60 +233,12 @@ export default function CheckoutPage() {
                       onChange={() => setMethod("Stripe")} />
                     <span>Pay by card (Stripe)</span>
                   </label>
-                  <label className={`flex items-center gap-3 border rounded-md px-4 py-3 cursor-pointer ${method === "BankTransfer" ? "border-ink" : "border-black/15"}`}>
-                    <input type="radio" checked={method === "BankTransfer"}
-                      onChange={() => setMethod("BankTransfer")} />
-                    <span>JazzCash / Easypaisa / Bank Transfer</span>
-                  </label>
                   <label className={`flex items-center gap-3 border rounded-md px-4 py-3 cursor-pointer ${method === "COD" ? "border-ink" : "border-black/15"}`}>
                     <input type="radio" checked={method === "COD"}
                       onChange={() => setMethod("COD")} />
                     <span>Cash on Delivery</span>
                   </label>
                 </div>
-
-                {method === "BankTransfer" && (
-                  <div className="mt-4 border border-black/15 rounded-md p-4 bg-black/[0.02] text-sm">
-                    <p className="font-medium mb-2">
-                      Transfer {currency(total)} to one of the accounts below, then enter your
-                      transaction ID:
-                    </p>
-                    <ul className="space-y-1 text-black/70 mb-3">
-                      {PAYMENT_INFO.accountName && (
-                        <li>Account title: <strong>{PAYMENT_INFO.accountName}</strong></li>
-                      )}
-                      {PAYMENT_INFO.jazzcash && (
-                        <li>JazzCash: <strong>{PAYMENT_INFO.jazzcash}</strong></li>
-                      )}
-                      {PAYMENT_INFO.easypaisa && (
-                        <li>Easypaisa: <strong>{PAYMENT_INFO.easypaisa}</strong></li>
-                      )}
-                      {PAYMENT_INFO.bankName && PAYMENT_INFO.bankIban && (
-                        <li>
-                          Bank: <strong>{PAYMENT_INFO.bankName}</strong> · IBAN:{" "}
-                          <strong>{PAYMENT_INFO.bankIban}</strong>
-                        </li>
-                      )}
-                      {!PAYMENT_INFO.jazzcash &&
-                        !PAYMENT_INFO.easypaisa &&
-                        !PAYMENT_INFO.bankIban && (
-                          <li className="text-amber-700">
-                            Payment account details have not been configured yet.
-                          </li>
-                        )}
-                    </ul>
-                    <input
-                      required
-                      placeholder="Transaction ID (TID) from JazzCash/Easypaisa/bank"
-                      className="input"
-                      value={transactionId}
-                      onChange={(e) => setTransactionId(e.target.value)}
-                    />
-                    <p className="text-xs text-black/50 mt-1">
-                      We'll verify your transfer and confirm the order shortly.
-                    </p>
-                  </div>
-                )}
               </section>
 
               <button disabled={busy}
@@ -298,8 +247,6 @@ export default function CheckoutPage() {
                   ? "Placing order…"
                   : method === "COD"
                   ? "Place order (Cash on Delivery)"
-                  : method === "BankTransfer"
-                  ? "Place order"
                   : "Continue to payment"}
               </button>
             </form>

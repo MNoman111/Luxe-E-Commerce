@@ -86,10 +86,7 @@ export default function AdminOrders() {
                       {o.isPaid ? "· Paid" : "· Unpaid"}
                     </span>
                   </div>
-                  {o.paymentReference && (
-                    <div className="text-xs text-black/50">Txn: {o.paymentReference}</div>
-                  )}
-                  {!o.isPaid && o.paymentMethod !== "Stripe" && (
+                  {!o.isPaid && o.paymentMethod === "COD" && (
                     <button
                       onClick={() => confirmPaid(o._id)}
                       disabled={saving === o._id}

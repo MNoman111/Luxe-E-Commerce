@@ -46,8 +46,6 @@ function OrderInner() {
           <p className="text-sm text-green-700 mt-1">
             {order.paymentMethod === "COD"
               ? "You'll pay in cash on delivery. "
-              : order.paymentMethod === "BankTransfer"
-              ? "We'll confirm your order once your transfer is verified. "
               : "Payment received. "}
             A confirmation email is on its way to{" "}
             {order.contactEmail || order.guestEmail || order.user?.email || "your inbox"}.
@@ -66,19 +64,6 @@ function OrderInner() {
               View order details
             </a>
           </div>
-        </div>
-      )}
-
-      {order.paymentMethod === "BankTransfer" && !order.isPaid && (
-        <div className="mb-8 border border-amber-200 bg-amber-50 rounded-xl p-6">
-          <h2 className="font-serif text-2xl text-amber-900 mb-1">
-            Payment under verification
-          </h2>
-          <p className="text-sm text-amber-800">
-            We've received your order
-            {order.paymentReference ? ` (transaction ID: ${order.paymentReference})` : ""}. We'll
-            confirm it as soon as your JazzCash / Easypaisa / bank transfer is verified.
-          </p>
         </div>
       )}
 

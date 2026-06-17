@@ -22,11 +22,16 @@ const getStripe = () => {
 };
 
 // Rebuild line items + items subtotal server-side from the DB to prevent tampering.
+// Fetches all products in a single query (avoids an N+1 query per cart item).
 const buildOrderItems = async (items) => {
+  const ids = [...new Set(items.map((i) => String(i.product)))];
+  const products = await Product.find({ _id: { $in: ids } }).lean();
+  const byId = new Map(products.map((p) => [p._id.toString(), p]));
+
   let itemsPrice = 0;
   const orderItems = [];
   for (const i of items) {
-    const product = await Product.findById(i.product);
+    const product = byId.get(String(i.product));
     if (!product) throw new Error("Product in cart no longer exists");
     const qty = Math.max(1, Number(i.qty) || 1);
     itemsPrice += product.price * qty;
@@ -152,12 +157,9 @@ export const createOrder = asyncHandler(async (req, res) => {
     voucherCode,
     guestEmail,
     contactEmail,
-    paymentReference,
     paymentIntentId,
   } = req.body;
-  const method = ["COD", "BankTransfer"].includes(paymentMethod)
-    ? paymentMethod
-    : "Stripe";
+  const method = paymentMethod === "COD" ? "COD" : "Stripe";
 
   // Stripe: the order is created from the server-side draft after the payment succeeds.
   if (method === "Stripe") {
@@ -215,7 +217,7 @@ export const createOrder = asyncHandler(async (req, res) => {
     await pricing.voucherDoc.save();
   }
 
-  // COD / bank transfer are placed unpaid (confirmed on delivery / after verification).
+  // COD orders are placed unpaid (paid on delivery).
   const order = await Order.create({
     user: req.user?._id,
     isGuest,
@@ -230,12 +232,11 @@ export const createOrder = asyncHandler(async (req, res) => {
     totalPrice: pricing.totalPrice,
     shippingAddress,
     paymentMethod: method,
-    paymentReference: method === "BankTransfer" ? (paymentReference || "").trim() : "",
     isPaid: false,
     status: "Pending",
   });
 
-  // Confirmation email at placement (COD / bank transfer).
+  // Confirmation email at placement (COD).
   try {
     await sendOrderEmails(order, {
       customerEmail: email,
@@ -250,13 +251,13 @@ export const createOrder = asyncHandler(async (req, res) => {
 
 // @route GET /api/orders/mine
 export const getMyOrders = asyncHandler(async (req, res) => {
-  const orders = await Order.find({ user: req.user._id }).sort({ createdAt: -1 });
+  const orders = await Order.find({ user: req.user._id }).sort({ createdAt: -1 }).lean();
   res.json(orders);
 });
 
 // @route GET /api/orders/:id   (optionalAuth)
 export const getOrderById = asyncHandler(async (req, res) => {
-  const order = await Order.findById(req.params.id).populate("user", "name email");
+  const order = await Order.findById(req.params.id).populate("user", "name email").lean();
   if (!order) {
     res.status(404);
     throw new Error("Order not found");
@@ -275,7 +276,7 @@ export const getOrderById = asyncHandler(async (req, res) => {
 });
 
 // @route PUT /api/orders/:id/confirm-payment  (admin)
-// Manually mark an order paid after verifying a JazzCash/Easypaisa/bank transfer.
+// Manually mark an order paid (e.g. a COD order paid before delivery).
 export const confirmPayment = asyncHandler(async (req, res) => {
   const order = await Order.findById(req.params.id);
   if (!order) {
@@ -286,7 +287,7 @@ export const confirmPayment = asyncHandler(async (req, res) => {
   order.paidAt = order.paidAt || new Date();
   if (order.status === "Pending") order.status = "Processing";
   order.paymentResult = {
-    id: order.paymentReference || "manual",
+    id: "manual",
     status: "confirmed",
     provider: order.paymentMethod,
   };
@@ -298,7 +299,8 @@ export const confirmPayment = asyncHandler(async (req, res) => {
 export const getAllOrders = asyncHandler(async (req, res) => {
   const orders = await Order.find({})
     .populate("user", "name email")
-    .sort({ createdAt: -1 });
+    .sort({ createdAt: -1 })
+    .lean();
   res.json(orders);
 });
 
@@ -339,7 +341,7 @@ export const updateOrderStatus = asyncHandler(async (req, res) => {
 
 // @route GET /api/orders/admin/stats  (admin)
 export const getOrderStats = asyncHandler(async (req, res) => {
-  const orders = await Order.find({});
+  const orders = await Order.find({}, "isPaid totalPrice status").lean();
   const revenue = orders
     .filter((o) => o.isPaid)
     .reduce((a, o) => a + o.totalPrice, 0);

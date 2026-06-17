@@ -25,20 +25,20 @@ export const getProducts = asyncHandler(async (req, res) => {
   else query = query.sort({ createdAt: -1 });
 
   const count = await Product.countDocuments(filter);
-  const products = await query.skip((page - 1) * limit).limit(limit);
+  const products = await query.skip((page - 1) * limit).limit(limit).lean();
 
   res.json({ products, page, pages: Math.ceil(count / limit), count });
 });
 
 // @route GET /api/products/featured
 export const getFeatured = asyncHandler(async (req, res) => {
-  const products = await Product.find({ featured: true }).limit(8);
+  const products = await Product.find({ featured: true }).limit(8).lean();
   res.json(products);
 });
 
 // @route GET /api/products/:id
 export const getProductById = asyncHandler(async (req, res) => {
-  const product = await Product.findById(req.params.id);
+  const product = await Product.findById(req.params.id).lean();
   if (!product) {
     res.status(404);
     throw new Error("Product not found");

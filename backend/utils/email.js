@@ -68,17 +68,13 @@ const shell = (title, intro, order, footer) => `
     ${totalsBlock(order)}
     <h3 style="margin-top:24px;font-size:15px;">Shipping to</h3>
     <p style="font-size:14px;color:#555;">${addressBlock(order)}</p>
-    <p style="font-size:14px;color:#555;">Payment method: <strong>${
-      order.paymentMethod === "BankTransfer" ? "JazzCash / Easypaisa / Bank transfer" : order.paymentMethod
-    }</strong> · ${
+    <p style="font-size:14px;color:#555;">Payment method: <strong>${order.paymentMethod}</strong> · ${
       order.isPaid
         ? "Paid"
         : order.paymentMethod === "COD"
         ? "Cash on delivery"
-        : order.paymentMethod === "BankTransfer"
-        ? "Awaiting payment verification"
         : "Awaiting payment"
-    }${order.paymentReference ? ` · Txn: ${order.paymentReference}` : ""}</p>
+    }</p>
     <p style="color:#999;font-size:12px;margin-top:28px;border-top:1px solid #eee;padding-top:12px;">${footer}</p>
   </div>`;
 
